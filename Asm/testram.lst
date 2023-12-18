@@ -1,0 +1,119 @@
+     1                                  ;=========================================================================
+     2                                  ; testram.asm - Test Breadboard PC RAM and ROM
+     3                                  ; Based on XI 8088 Bios code by Sergey Kiselev
+     4                                  ; nasm -f bin -o testram.bin -l testram.lst testram.asm
+     5                                  ;
+     6                                  ; Writes 8 bit ascending byte to addresses 00000 - 7FFFF (first 512K)
+     7                                  ; Then reads the bytes in this range until reset
+     8                                  ;=========================================================================
+     9                                  
+    10                                  cpu	8086
+    11                                  %include "macro.inc"
+     1                              <1> ;=========================================================================
+     2                              <1> ; macro.inc - Defines macros
+     3                              <1> ;       setloc
+     4                              <1> ;-------------------------------------------------------------------------
+     5                              <1> ;
+     6                              <1> ; Compiles with NASM 2.07, might work with other versions
+     7                              <1> ;
+     8                              <1> ; Copyright (C) 2011 - 2012 Sergey Kiselev.
+     9                              <1> ; Provided for hobbyist use on the Xi 8088 board.
+    10                              <1> ;
+    11                              <1> ; This program is free software: you can redistribute it and/or modify
+    12                              <1> ; it under the terms of the GNU General Public License as published by
+    13                              <1> ; the Free Software Foundation, either version 3 of the License, or
+    14                              <1> ; (at your option) any later version.
+    15                              <1> ;
+    16                              <1> ; This program is distributed in the hope that it will be useful,
+    17                              <1> ; but WITHOUT ANY WARRANTY; without even the implied warranty of
+    18                              <1> ; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    19                              <1> ; GNU General Public License for more details.
+    20                              <1> ;
+    21                              <1> ; You should have received a copy of the GNU General Public License
+    22                              <1> ; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    23                              <1> ;
+    24                              <1> ;=========================================================================
+    25                              <1> 
+    26                              <1> ;=========================================================================
+    27                              <1> ; setloc - Set location. Insert 0FFh bytes until specifed location is reached.
+    28                              <1> ;-------------------------------------------------------------------------
+    29                              <1> %imacro setloc  1.nolist
+    30                              <1> %assign pad_bytes (%1-($-$$)-START)
+    31                              <1> %if pad_bytes < 0
+    32                              <1> %assign over_bytes -pad_bytes
+    33                              <1> %error Preceding code extends beyond setloc location by over_bytes bytes
+    34                              <1> %endif
+    35                              <1> %if pad_bytes > 0
+    36                              <1> %warning Inserting pad_bytes bytes
+    37                              <1>  times  pad_bytes db 0FFh
+    38                              <1> %endif
+    39                              <1> %endm
+    12                                  
+    13                                  %define	START		8000h		; BIOS starts at offset 8000h
+    14                                      
+    15                                  
+    16                                  org	START		; Use only upper 32 KiB of ROM
+    17                                  
+    18                                  test_start:
+    19                                      ; Set up the segment registers
+    20 00000000 B80000                      mov ax, 0
+    21 00000003 BB0000                      mov bx, 0
+    22 00000006 8ED8                        mov ds, ax
+    23 00000008 31FF                        xor di, di
+    24                                  
+    25                                  fill_memory:
+    26                                      ; Write the incrementing bl to memory
+    27 0000000A 3E881D                      mov [ds:di], bl
+    28                                  
+    29                                      ; Increment bl and the index register
+    30 0000000D FEC3                        inc bl
+    31 0000000F 47                          inc di
+    32                                      ; If DI is 0, increment the segment register
+    33 00000010 75F8                        jnz fill_memory
+    34                                      ; Next 64K byte segment, can't add 1000 to ds directly, use ax
+    35 00000012 8CD8                        mov ax,ds
+    36 00000014 050010                      add ax,0x1000
+    37 00000017 8ED8                        mov ds,ax
+    38                                  
+    39                                      ; Repeat until all of memory is filled when DS=8000 (done 0000 - 7000)
+    40 00000019 3D0080                      cmp ax,0x8000
+    41 0000001C 75EC                        jne fill_memory
+    42                                  
+    43                                      ; Now read back values until reset
+    44                                  read:
+    45 0000001E B80000                      mov ax, 0
+    46 00000021 BB0000                      mov bx, 0
+    47 00000024 8ED8                        mov ds, ax
+    48 00000026 31FF                        xor di, di
+    49                                  
+    50                                  read_memory:
+    51                                      ; Read the value from memory, we don't do anything else with it currently
+    52 00000028 3E8A1D                      mov bl, [ds:di]
+    53                                  
+    54                                      ; Increment the index register
+    55 0000002B 47                          inc di
+    56                                      ; If DI is 0, increment the segment register
+    57 0000002C 75FA                        jnz read_memory
+    58                                      
+    59                                      ; Next 64K byte segment, can't add 1000 to ds directly, use ax
+    60 0000002E 8CD8                        mov ax,ds
+    61 00000030 050010                      add ax, 0x1000
+    62 00000033 8ED8                        mov ds,ax
+    63                                  
+    64                                      ; Repeat until all of RAM is read
+    65 00000035 3D401F                      cmp ax, 8000
+    66 00000038 75EE                        jne read_memory
+    67                                  
+    68                                      ; End of program, repeat for ever!
+    69 0000003A EBE2                        jmp read
+    70                                  
+    71                                  ;=========================================================================
+    72                                  ; start - at power up or reset execution starts here (F000:FFF0)
+    73                                  ;-------------------------------------------------------------------------
+    74 0000003C FF<rep 7FB4h>                   setloc	0FFF0h			; Power-On Entry Point, macro fills space with FF
+    74          ******************       warning: Inserting 32692 bytes [-w+user]
+    75                                  start:
+    76 00007FF0 EA[0000]00F0                    jmp     0F000h:test_start
+    77 00007FF5 FF<rep Ah>                      setloc	0FFFFh			; Power-On Entry Point
+    77          ******************       warning: Inserting 10 bytes [-w+user]
+    78 00007FFF FF                      	      db	0ffh

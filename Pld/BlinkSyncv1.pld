@@ -1,0 +1,96 @@
+Name            BLINKSYNCV1 Blink Clocks and HS/VS Sync;
+Partno          BLINKSYNCV1;
+Revision        01;
+Date            09/02/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          g16v8;
+
+/*****************************************************************************/
+/* 09/02/2024 V1 Buffer & Invert HS & VS where required                      */
+/*               5 Stage counter to divide VS by 32 to provide Blink Clock   */
+/*               For cursor and blinking video                               */
+/* cupl.exe -m1lxfjnabe -u C:\WinCUPL\Shared\Atmel.DL C:\WinCUPL\Shared\BlinkSyncv1.pld */  
+/* cuplb 0014cb invalid input: variable or pin/node number  invalid input: variable Error. */
+/* The variable used as an input was previously assigned to an output that is neither bidirectional nor feeds back into the input array. */
+/*****************************************************************************/
+
+/* Pin Map 
+         --------
+  Clk   |1     20| Vcc
+  VSin  |2     19| VSout   
+  HSin  |3     18| HSout  
+  InvVS |4     17| NC  
+  InvHS |5     16| Q4 (BlinkChr)    
+  NC    |6     15| Q3 (BlinkCur)
+  NC    |7     14| Q2  
+  NC    |8     13| Q1   
+  NC    |9     12| Q0  
+  Gnd   |10    11| /OE 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  =  clk;
+Pin 2  =  VSin;
+Pin 3 =   HSin;
+Pin 4  =  InvVS;
+Pin 5  =  InvHS;
+Pin 11 =  OE;
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+ 
+Pin 19 = VSout;        /* Buffered Vertical Sync */
+Pin 18 = HSout;        /* Buffered Inverted Horizontal Sync for 70Hz */
+Pin 12 = Q0;           /* VS/2  */
+Pin 13 = Q1;           /* VS/4  */
+Pin 14 = Q2;           /* VS/8  */
+Pin 15 = Q3;           /* VS/16 */
+Pin 16 = Q4;           /* VS/32 */
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/* InvHS=0 then HSin output, InvHS=1 !HSin output */
+HSout = HSin & !InvHS # !HSin & InvHS; 
+
+/* InvVS=0 then VSin output, InvVS=1 !VSin output */
+VSout = VSin & !InvVS # !VSin & InvVS;
+
+
+/* This counter divides VS 70Hz by 32 to give blink clock for cursor and blink */
+
+Q0.d  =
+   !Q0;
+
+Q1.d  =
+    !Q0 & Q1
+  # Q0 & !Q1;
+
+Q2.d  =
+    !Q0 & Q1 & Q2
+  # Q0 & Q1 & !Q2
+  # !Q1 & Q2;
+
+Q3.d  =
+    !Q0 & Q1 & Q2 & Q3
+  # Q0 & Q1 & Q2 & !Q3
+  # !Q1 & Q2 & Q3
+  # !Q2 & Q3;
+
+Q4.d  =
+    !Q0 & Q1 & Q2 & Q3 & Q4
+  # Q0 & Q1 & Q2 & Q3 & !Q4
+  # Q1 & Q2 & !Q3 & Q4
+  # !Q2 & Q4
+  # !Q1 & Q2 & Q4;

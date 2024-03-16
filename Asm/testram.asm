@@ -8,9 +8,11 @@
 ;=========================================================================
 
 cpu	8086
+
+; This macro includes the setloc macro to pad code with FF to a given address
 %include "macro.inc"
 
-%define	START		8000h		; BIOS starts at offset 8000h
+%define	START		8000h		; BIOS starts at offset 8000h Physical Address is F8000 [F000:8000]
     
 
 org	START		; Use only upper 32 KiB of ROM
@@ -29,7 +31,7 @@ fill_memory:
     ; Increment bl and the index register
     inc bl
     inc di
-    ; If DI is 0, increment the segment register
+    ; If di is 0, increase the data segment register to next 64K block
     jnz fill_memory
     ; Next 64K byte segment, can't add 1000 to ds directly, use ax
     mov ax,ds
@@ -53,7 +55,7 @@ read_memory:
 
     ; Increment the index register
     inc di
-    ; If DI is 0, increment the segment register
+    ; If di is 0, increase the data segment register to next 64K block
     jnz read_memory
     
     ; Next 64K byte segment, can't add 1000 to ds directly, use ax
@@ -71,8 +73,8 @@ read_memory:
 ;=========================================================================
 ; start - at power up or reset execution starts here (F000:FFF0)
 ;-------------------------------------------------------------------------
-        setloc	0FFF0h			; Power-On Entry Point, macro fills space with FF
+        setloc	0FFF0h			; Power-On Entry Point, macro fills space from last line with FF
 start:
         jmp     0F000h:test_start
-        setloc	0FFFFh			; Power-On Entry Point
+        setloc	0FFFFh			; Pad remainder of ROM
 	      db	0ffh

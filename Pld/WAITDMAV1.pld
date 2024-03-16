@@ -1,0 +1,90 @@
+Name            WAITDMAV1 Breadboard Wait & DMA PLD V1;
+Partno          WAITDMAV1;
+Revision        1;
+Date            11/03/24;
+Designer        Dave Henry;
+Company         ;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/* 11/03/2024 V1 Created for Breadboard PC Video #26                                */
+
+
+/**********************************************************************************/
+/*  See XI 8088 Schematic for logic gates                                         */
+/**********************************************************************************/
+
+/* Pin Map 
+          --------
+ CLK     |1     24| Vcc
+ /RESET  |2     23| /DMAWAIT 
+ /IOR    |3     22| AENBRD 
+ /IOW    |4     21| /AEN
+ NC      |5     20| RDYTODMA 
+ NC      |6     19| AENBRD1 
+ /LOCK   |7     18| REQDMA 
+ /S0     |8     17| IO6
+ /S1     |9     16| /RDY/WAIT+1 
+ HRQDMA  |10    15| IORWCLK
+ HOLDA   |11    14| REQDMA+1
+ Gnd     |12    13| RDY/WAIT
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  CLK;     /* 4.77 Mhz System Clock 33/67 Duty Cycle */
+Pin 2  =  !RESET;  /* RESET active high in logic rules */
+Pin 3  =  IOR;     /* Note /IOR active low but no ! due to IORWCLK condition */
+Pin 4  =  IOW;     /* Note /IOW active low but no ! due to IORWCLK condition */
+Pin 7  =  LOCK;    /* Note /LOCK active low but no ! due to REQDMA condition */
+Pin 8  =  S0;      /* Note /S0 active low but no ! due to REQDMA condition */
+Pin 9  =  S1;      /* Note /S1 active low but no ! due to REQDMA condition */
+Pin 10 =  HRQDMA;
+Pin 11 =  HOLDA;
+Pin 13 =  RDYWAIT; /* RDYWAIT is the /Q output from 74LS74, needs to be inverted for RDYWAIT1 D input! */
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ *4
+
+Pin 23 = !DMAWAIT;      /* Refresh DRAM output */
+Pin 22 = AENBRD;        /* Speaker Out NAND of SPKR and OUT2 */     
+Pin 21 = !AEN;
+Pin 20 = RDYTODMA;
+Pin 19 = AENBRD1;
+Pin 16 = !RDYWAIT1;
+Pin 15 = !IORWCLK;     /* NAND of /IOR and /IOW needs ! to change AND to NAND */
+Pin 14 = REQDMA1;
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   Flip-flop D Input .d  Async Reset .AR Sync PreSet .SP Output Enable .OE 
+*/
+
+/* D1 HOLDA input */ 
+AENBRD.ar = RESET;
+AENBRD.d = HOLDA;
+AEN = AENBRD; /* AEN Inverted in Pin definition */
+
+/* D2  AENBRD input */ 
+AENBRD1.ar = RESET;
+AENBRD1.d = AENBRD;
+
+/* D3  /RDYWAIT input */ 
+RDYWAIT1.ar = RESET;
+RDYWAIT1.d = !RDYWAIT; /* RDYWAIT is the /Q output from 74LS74, needs to be inverted for RDYWAIT1 D input! */
+
+/* D4  REQDMA input */ 
+REQDMA1.ar = RESET;
+REQDMA1.d = S0 & S1 & LOCK & HRQDMA;   /* Request DMA /S0 & /S1 & /LOCK & HRQDMA */
+
+RDYTODMA = RDYWAIT & !RDYWAIT1;        /* RDYWAIT1 inverted on Output Pin, RDYTODMA needs inverted RDYWAIT1 */
+
+/* DMAAEN = AENBRD & AENBRD1; Not currently required as X-Bus not used */
+
+DMAWAIT = AENBRD1;     /* Output Inverted in Pin assignment */
+
+IORWCLK = IOR & IOW;  /* NAND of /IOR and /IOW  */

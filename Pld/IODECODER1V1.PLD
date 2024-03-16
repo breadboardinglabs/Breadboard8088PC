@@ -1,0 +1,85 @@
+Name            IODECODER1V1 Breadboard PC IO Address Decoder V1;
+Partno          IODECODER1V1;
+Revision        1;
+Date            02/03/24;
+Designer        Dave Henry;
+Company         ;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/* 02/03/2024 V1 Created for Breadboard PC Video #23                                */
+
+
+/**********************************************************************************/
+/*  See BreadboardPC_IRQ_and_IO.xlsx for details of IO Mapping                    */
+/**********************************************************************************/
+
+/* Pin Map 
+          --------
+/IOA19A12|1     24| Vcc
+ A2      |2     23| /DMAPGW
+ A3      |3     22| /DMACS
+ A4      |4     21| /PITCS
+ A5      |5     20| /PIC1CS
+ A6      |6     19| /PORTBR
+ A7      |7     18| /PORTBW
+ A8      |8     17| /PIC2CS
+ A9      |9     16| /POSTCS
+ A10     |10    15| /IOW
+ A11     |11    14| A1
+ Gnd     |12    13| A0
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  !IOA19A12; /* Goes low when A19-A12 are low and either IOW or IOW are low, active high in logic rules */
+Pin 2  =  A2; 
+Pin 3  =  A3;
+Pin 4  =  A4;
+Pin 5  =  A5;
+Pin 6  =  A6;
+Pin 7  =  A7;
+Pin 8  =  A8;
+Pin 9  =  A9; 
+Pin 10 =  A10;
+Pin 11 =  A11;
+Pin 13 =  A0;
+Pin 14 =  A1;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+
+Pin 23 = !DMAPGW;      /* DMA Page Register Write  */
+Pin 22 = !DMACS;       /* DMA Controller CS */
+Pin 21 = !PITCS;       /* Programmable Interval Timer (PIT) CS  */
+Pin 20 = !PIC1CS;      /* Programmable Interrupt Controller 1 CS (PIC1) */
+Pin 19 = !PORTBR;      /* PPI Port B Read */
+Pin 18 = !PORTBW;      /* PPI Port B Write */
+Pin 17 = !PIC2CS;      /* Programmable Interrupt Controller 2 CS (PIC2) */
+Pin 16 = !POSTCS;      /* POST Port 0x80 */
+Pin 15 = !IOW;         /* IOW active high in logic  */     
+
+/*
+ * Logic:  All CS outputs are active low signals in the target system.
+ */
+ 
+/* IOA19A12 is true when A19-A12 are low and either /IOR or /IOW are low, all CS are true below and inverted in Output */
+DMACS = IOA19A12 & !A11 & !A10 & !A9 & !A8 & !A7 & !A6 & !A5;  /* 0x00 - 0x1F */ 
+
+PIC1CS = IOA19A12 & !A11 & !A10 & !A9 & !A8 & !A7 & !A6 & A5;  /* 0x20 - 0x3F */
+
+PITCS = IOA19A12 & !A11 & !A10 & !A9 & !A8 & !A7 & A6 & !A5 & !A4 & !A3 & !A2; /* 0x40 - 0x43 */
+
+PORTBR = IOA19A12 & !A11 & !A10 & !A9 & !A8 & !A7 & A6 & A5 & !A4 & !A3 & !A2 & !A1 & A0 & !IOW; /* 0x61 - 0x61 IOA19A12 combined with IOW or IOW so !IOW is IOR */
+
+PORTBW = IOA19A12 & !A11 & !A10 & !A9 & !A8 & !A7 & A6 & A5 & !A4 & !A3 & !A2 & !A1 & A0 & IOW; /* 0x61 - 0x61 IOA19A12 combined with IOW or IOW so need IOW not IOR */
+
+DMAPGW = IOA19A12 & !A11 & !A10 & !A9 & !A8 & A7 & !A6 & !A5 & !A4 & !A3 & !A2 & IOW; /* 0x80 - 0x83 IOA19A12 combined with IOW or IOW so need IOW not IOR */
+
+POSTCS = IOA19A12 & !A11 & !A10 & !A9 & !A8 & A7 & !A6 & !A5 & !A4 & !A3 & !A2 & !A1 & !A0 & IOW; /* 0x80 - 0x80 IOA19A12 combined with IOW or IOW so need IOW not IOR */
+
+PIC2CS = IOA19A12 & !A11 & !A10 & !A9 & !A8 & A7 & !A6 & A5;  /* 0xA0 - 0xBF */

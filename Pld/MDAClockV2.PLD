@@ -1,0 +1,98 @@
+Name            MDAClockV2 MDA Video Adaptor Clock;
+Partno          MDAClockV2;
+Revision        02;
+Date            15/02/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/****************************************************************************/
+/* This PLD buffers the 25MHz Dot clock and inverted, Divides dot clock     */
+/* by 8 for Character Clock (Qc), Qb used for VA0 for char/att toggle       */
+/* Also latch clocks for Character, Attribute and Shift Reg. Latches        */
+/* Decodes RA0-RA3 to provide UnderlineRA output to select underline row    */
+/* High on InvVS and InvHS will invert the signal for -ve sync,             */
+/* low for +ve sync                                                         */
+/*                                                                          */
+/* 14/01/2024 V1                                                            */
+/* 15/02/2024 v2 Merge AT and SR Latches, VA0 is !Qa delayed 2 dot clocks   */
+/*               Bring CH and ATSR Latches forward 3 and 2 dot clock cycles */
+/****************************************************************************/
+
+/* Pin Map 
+         --------
+  DotClk|1     24| Vcc
+  RA0   |2     23| ATSRLatch
+  RA1   |3     22| UnderlRA 
+  RA2   |4     21| VA0
+  RA3   |5     20| CHLatch
+  /RST  |6     19| Qa
+  NC    |7     18| Qb
+  NC    |8     17| Qc
+  NC    |9     16| /Qc /ChClk for CRTC
+  NC    |10    15| VA0Dly
+  NC    |11    14| DotClkBuf 
+  Gnd   |12    13| NC 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  =  DotClk;
+Pin 2  =  RA0;
+Pin 3  =  RA1;
+Pin 4  =  RA2;
+Pin 5  =  RA3;
+Pin 6  =  !RST;
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 23 = ATSRLatch;  /* Attribute and Shift Register Latch */
+Pin 22 = UnderlRA;    /* Underline Row Address */
+Pin 21 = VA0;         /* Video address 0 switch between character and attribute RAM */
+Pin 20 = CHLatch;     /* Character Latch */
+Pin 19 = Qa;          /* Counter output /2 */
+Pin 18 = Qb;          /* Counter outut /4 Video Address 0 */
+Pin 17 = Qc;          /* Counter output /8 Character Clock */
+Pin 16 = QcInv;       /* Inverted Counter output /8 */
+Pin 15 = VA0Dly;      /* VA0 delayed 1 Dot Clock cycle */
+Pin 14 = DotClkBuf;   /* Dot Clock Buffered */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+CLK=DotClk;
+
+DotClkBuf = DotClk;
+
+/* Underline on line 14 */
+UnderlRA = RA3 & RA2 & RA1 & !RA0;
+
+/* These conditions are required to cascade D Flip-Flops */
+/* as a Counter !Q feeds back into D */
+Qc.d = ((!Qc & Qb & Qa) # (Qc & !(Qb & Qa))) ;
+Qb.d = (!Qb & Qa # Qb & !Qa);
+/* D Flip Flop Counter feeds !Q into D and uses CLK to cycle */
+Qa.d = !Qa;
+
+Qa.ar = RST;
+Qb.ar = RST;
+Qc.ar = RST;
+QcInv= !Qc;
+
+/* Character Latch now original SR Latch #3- 4 FF so don't need Colour pipeline */
+/* CHLatch=!(!Qa & Qb & !Qc); old 3 cycles */
+CHLatch=Qc # Qa # Qb;
+
+/* This is the condition we worked out in the Excel Sheet now at #5 - 6 FF */
+ATSRLatch=Qc # (!(Qa & Qb));
+
+/* VA0 is based on inverted Qc delayed by 2 dot clocks */
+VA0Dly.d = !Qc;
+VA0.d = VA0Dly;

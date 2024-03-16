@@ -1,0 +1,77 @@
+Name            BLINKSYNCV1 Blink Clock and HS/VS Sync;
+Partno          BLINKSYNCV1;
+Revision        01;
+Date            14/01/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          g16v8;
+
+/***************************************************************************************/
+/* 15/01/2024 V1 MDA Video Controller IO Port Decoder                                  */
+/* cupl.exe -m1lxfjnabe -u C:\WinCUPL\Shared\Atmel.DL C:\WinCUPL\Shared\MDA_decode.pld */  
+/* Port 3B0		Palette Add  Wr 3B0-3B3 A0 & A1 to Palette IC                            */
+/* Port 3B1		Palette Colour (IMS G176P uses A1 and A0 for RS1 and RS0 )               */
+/* Port 3B2		Palette Mark                                                             */
+/* Port 3B3		Palette Add Rd                                                           */
+/* Port 3B4		CRTC Index      (6845 uses RS for A0)                                    */
+/* Port 3B5		CRTC Data                                                                */
+/* Port 3B8		CRT Control Port                                                         */
+/* Port 3BA		CRT Status Port                                                          */
+/***************************************************************************************/
+
+/* Pin Map 
+         --------
+IOA19A12|1     20| Vcc
+  A0    |2     19| /PAL    
+  A1    |3     18| /6845CS  
+  A2    |4     17| NA
+  A3    |5     16| /CRTC
+  A4    |6     15| /CRTS
+  A5    |7     14| A11  
+  A6    |8     13| A10   
+  A7    |9     12| A9  
+  Gnd   |10    11| A8
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  =  IOA19A12;
+Pin 2  =  A0;
+Pin 3  =  A1;
+Pin 4  =  A2;
+Pin 5  =  A3;
+Pin 6  =  A4;
+Pin 7  =  A5;
+Pin 8  =  A6;
+Pin 9  =  A7;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 19 = !PAL  
+Pin 18 = !6845CS 
+Pin 16 = !CRTC
+Pin 15 = !CRTS
+ 
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/*    A11            A0*/
+/* 03B0 0011 1011 0000 */
+PAL = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & !A3 & !A2;             /* 03B0-03B3 Ignore A1 & A0 */
+
+6845CS = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & A3 & A2 & !A1;      /* 03B4 Ignore A0 as 6845 has RS=A0 */
+
+CRTC = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & A3 & !A2 & !A1 & !A0; /* 03B8 CRT Control Register */
+
+CRTS = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & A3 & !A2 & A1 & !A0;  /* 03BA CRT Status Register */

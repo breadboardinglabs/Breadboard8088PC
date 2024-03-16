@@ -1,0 +1,94 @@
+Name            MDADECODEV1 MDA Video Controller IO Port Decoder;
+Partno          MDADECODEV1;
+Revision        01;
+Date            14/01/24;
+Designer        Dave Henry;
+Company         Breadboarding Labs;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/*****************************************************************************************/
+/* 15/01/2024 V1 MDA Video Controller IO Port Decoder                                    */
+/* cupl.exe -m1lxfjnabe -u C:\WinCUPL\Shared\Atmel.DL C:\WinCUPL\Shared\MDA_decodeV1.pld */  
+/* Port 3B0		Palette Add  Wr 3B0-3B3 A0 & A1 to Palette IC                              */
+/* Port 3B1		Palette Colour (IMS G176P uses A1 and A0 for RS1 and RS0 )                 */
+/* Port 3B2		Palette Mark                                                               */
+/* Port 3B3		Palette Add Rd                                                             */
+/* Port 3B4		CRTC Index      (6845 uses RS for A0)                                      */
+/* Port 3B5		CRTC Data                                                                  */
+/* Port 3B8		CRT Control Port                                                           */
+/* Port 3BA		CRT Status Port                                                            */
+/*****************************************************************************************/
+
+/* Pin Map 
+          --------
+/IOA19A12|1     24| Vcc
+   /IOR  |2     23| /CRTS
+   /IOW  |3     22| /6845CS  
+   A0    |4     21| /CRTC
+   A1    |5     20| NC
+   A2    |6     19| /PALRD
+   A3    |7     18| /PALWR  
+   A4    |8     17| NC   
+   A5    |9     16| A11
+   A6    |10    15| A10
+   A7    |11    14| A9
+   Gnd   |12    13| A8
+          --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  = !IOA19A12;
+Pin 2  = !IOR;
+Pin 3  = !IOW;
+Pin 4  = A0;
+Pin 5  = A1;
+Pin 6  = A2;
+Pin 7  = A3;
+Pin 8  = A4;
+Pin 9  = A5;
+Pin 10 = A6;
+Pin 11 = A7;
+Pin 13 = A8;
+Pin 14 = A9;
+Pin 15 = A10;
+Pin 16 = A11;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 23 = !CRTS;
+Pin 22 = !6845CS; 
+Pin 21 = !CRTC;
+Pin 19 = !PALRD;
+Pin 18 = !PALWR;
+ 
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/*    A11   A7      A0 */
+/* 03B0 0011 1011 0000  */
+PALRD = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & !A3 & !A2 & IOA19A12 & IOR;           /* 03B0-03B3 Ignore A1 & A0 read */
+
+PALWR = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & !A3 & !A2 & IOA19A12 & IOW;           /* 03B0-03B3 Ignore A1 & A0 write */
+
+/*    A11   A7      A0 */
+/* 03B4 0011 1011 0100  */
+6845CS = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & !A3 & A2 & !A1 & IOA19A12;            /* 03B4 Ignore A0 as 6845 has RS=A0 */
+
+/*    A11   A7      A0 */
+/* 03B8 0011 1011 1000  */
+CRTC = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & A3 & !A2 & !A1 & !A0 & IOA19A12 & IOW; /* 03B8 CRT Control Register write */
+
+/*    A11   A7      A0 */
+/* 03BA 0011 1011 1010  */
+CRTS = !A11 & !A10 & A9 & A8 & A7 & !A6 & A5 & A4 & A3 & !A2 & A1 & !A0 & IOA19A12 & IOR;  /* 03BA CRT Status Register read */

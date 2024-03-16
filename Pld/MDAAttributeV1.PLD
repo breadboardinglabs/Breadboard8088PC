@@ -1,0 +1,79 @@
+Name            MDAAttMuxV1 MDA Video Adaptor Attribute Multiplexer;
+Partno          MDAAttMuxV1;
+Revision        01;
+Date            11/02/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/****************************************************************************/
+/* This PLD provides the video multiplexer for MDA Video Controller         */
+/* 11/02/2024 V1 Initial version supporting Mono and Colour output          */
+/*                                                                          */
+/****************************************************************************/
+
+/* Pin Map 
+         --------
+  AT7   |1     24| Vcc
+  AT6   |2     23| NoDisplay
+  AT5   |3     22| Underl
+  AT4   |4     21| RVV
+  AT3   |5     20| +AlphaDots
+  AT2   |6     19| +Video
+  AT1   |7     18| P4
+  AT0   |8     17| P3
+ VideoEn|9     16| P2
+  BW/Col|10    15| P1
+  BlkEn |11    14| P0
+  Gnd   |12    13| NC 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  = AT7;        /* Blink if BlkEn else Background Intensity */
+Pin 2  = AT6;        /* Background R */
+Pin 3  = AT5;        /* Background G */
+Pin 4  = AT4;        /* Background B */
+Pin 5  = AT3;        /* Foreground Intensity */
+Pin 6  = AT2;        /* Foreground R */
+Pin 7  = AT1;        /* Foreground G */
+Pin 8  = AT0;        /* Foreground B */
+Pin 9  = VideoEn;     /* Video Enable from CRT Control */
+Pin 10 = BWCol;      /* CRT Control Black/White = 1, Colour = 0 */
+Pin 11 = BlkEn;      /* CRT Control Blink Enable */
+Pin 19 = Video;      /* Input from Video Out PLD, switch from Foreground to Background includes reverse video */
+Pin 20 = AlphaDots;   /* Input from Video Out PLD, switch background intensity from Foreground to Background but ignores reverse video */
+
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 23 = NoDisplay;   /* Foreground/background RGB both 000 */
+Pin 22 = Underl;      /* Foreground RBG 001 */
+Pin 21 = RVV;         /* Foreground/background RGB 000 & 111 */
+Pin 18 = P4;          /* Video DAC P4 select between Monochrome=1 and BIOS/CGA Colour=0 */
+Pin 17 = P3;          /* Video DAC P3, Monochrome=0, Colour=Intensity */
+Pin 16 = P2;          /* Video DAC P2, Monochrome=0, Colour=Red */
+Pin 15 = P1;          /* Video DAC P1, Monochrome=Intensity, Colour=Green */
+Pin 14 = P0;          /* Video DAC P0, Monochrome=Video Fore/Back, Colour=Red */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+NoDisplay = (!AT6 & !AT5 & !AT4 & !AT2 & !AT1 & !AT0 & BWCol) # !VideoEn; /* Foreground = 000, Background = 000, VideoEn=0 then all Att0-7=0 -> NoDisplay */
+Underl = !AT2 & !AT1 & AT0 & BWCol; /* Foreground = 001 when Mono BW=1 */
+RVV = AT6 & AT5 & AT4 & !AT2 & !AT1 & !AT0 & BWCol; /* Foreground = 000, Background = 111 */
+
+P4 = BWCol; /* Monochrome Palette values 0x10 - 0x13, Colour Palette Values 0x00 - 0x0F */
+P3 = !BWCol & ((Video & AT3) # (!Video & !BlkEn & AT7)); /* Video DAC P3, Monochrome=0, Colour=Fore Intensity, H - Back Intensity if BlinkEn=0 */
+P2 = !BWCol & ((Video & AT2) # (!Video & AT6));          /* Video DAC P2, Monochrome=0, Colour=Red AT2 or AT6 */
+P1 = (BWCol & AlphaDots & AT3) # (BWCol & !AlphaDots & AT7 & !BlkEn) # (!BWCol & ((Video & AT1) # (!Video & AT5))); /* Video DAC P1, Monochrome=Intensity, Colour=Green AT1 or AT5 */
+P0 = (BWCol & Video) # (!BWCol & ((Video & AT0) # (!Video & AT4))); /* Video DAC P0, Monochrome=Video Fore/Back, Colour=Blue AT0 or AT4*/
+ 

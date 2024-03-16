@@ -1,0 +1,90 @@
+Name            7SEGKEYV1 7 Segment Keypad Decoder;
+Partno          7SEGKEYV1;
+Revision        01;
+Date            30/11/23;
+Designer        Dave Henry;
+Company         ;
+Location        UK;
+Assembly        None;
+Device          g16v8as;
+
+/*****************************************************************************/
+/* 30/11/2023 V1 Expands 74LS145 decoder to do 4 keypad and 8 LED segments   */
+/*               Takes PB0-3 and provides Q0-Q3 for keypad then outputs      */
+/*               Pass through P0-P3 Shifted by 4 to give Q4-Q11 for          */
+/*               8 x 7 Segment LEDs                                          */
+/*****************************************************************************/
+
+/* Pin Map 
+         --------
+  NC    |1     20| Vcc
+  PB3   |2     19| P3   
+  PB2   |3     18| P2  
+  PB1   |4     17| P1  
+  PB0   |5     16| P0    
+  NC    |6     15| Q3 
+  NC    |7     14| Q2  
+  NC    |8     13| Q1   
+  NC    |9     12| Q0  
+  Gnd   |10    11| NC 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 5  =  PB0;
+Pin 4  =  PB1;
+Pin 3  =  PB2;
+Pin 2  =  PB3;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 16 = P0;        /* 7 Segment pass through P0 output for Q4-Q11 */
+Pin 17 = P1;        /* 7 Segment pass through P1 output for Q4-Q11 */
+Pin 18 = P2;        /* 7 Segment pass through P2 output for Q4-Q11 */
+Pin 19 = P3;        /* 7 Segment pass through P3 output for Q4-Q11 */
+Pin 12 = !Q0;        /* Keypad Q0 output  */
+Pin 13 = !Q1;        /* Keypad Q1 output  */
+Pin 14 = !Q2;        /* Keypad Q2 output  */
+Pin 15 = !Q3;        /* Keypad Q3 output  */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+
+Q0 = (!PB3 & !PB2 & !PB1 & !PB0);
+Q1 = (!PB3 & !PB2 & !PB1 &  PB0);
+Q2 = (!PB3 & !PB2 &  PB1 & !PB0);
+Q3 = (!PB3 & !PB2 &  PB1 &  PB0);
+/* Q8 is not used but gives value when Keypad Q0-Q3 selected
+  PB-PB  P0-P3
+   0      LED Q8 Q0
+   1      LED Q8 Q1
+   2      LED Q8 Q2
+   3      LED Q8 Q3
+   4      LED Q0
+   5      LED Q1
+   6      LED Q2
+   7      LED Q3
+   8      LED Q4
+   9      LED Q5
+  10      LED Q6
+  11      LED Q7
+  12      LED Q8 */
+
+FIELD input = [PB3..0];
+FIELD output = [P3..0];
+TABLE input => output {
+0=> 08; 1=>08; 2=>08; 3=>08;
+4=>00; 5=>01; 6=>02; 7=>03;
+8=>04; 9=>05; A=>06; B=>07;
+C=>08; D=>08; E=>08; F=>08;
+}

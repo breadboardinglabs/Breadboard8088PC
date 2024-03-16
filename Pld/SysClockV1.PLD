@@ -1,0 +1,66 @@
+Name            SysClockV1 System Clock;
+Partno          SysClockV1;
+Revision        01;
+Date            28/02/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G16V8A;
+
+/****************************************************************************/
+/* This PLD produces DMA Clock same as CLK88 but >40% duty cycle            */
+/* and the Timer Clock 1.19 Mz which is PCLK/2                              */
+/*                                                                          */
+/* 28/02/2024 V1                                                            */
+/****************************************************************************/
+
+/* Pin Map 
+         --------
+  PCLK  |1     20| Vcc
+  CLK88 |2     19| DMACLK   
+  Reset |3     18| PITCLK  
+  NC    |4     17| /CLK  
+  NC    |5     16| CLK    
+  NC    |6     15| CLK3
+  NC    |7     14| CLK4 
+  NC    |8     13| CLK5  
+  NC    |9     12| /Reset  
+  Gnd   |10    11| /OE 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  =  clk;   /* Perpiheral Clock which is CLK88 / 2 but 50% duty cycle */
+Pin 2  =  C88;   /* 4.77 Mhz system clock with 33/67 duty cycle */
+Pin 3  =  reset; /* Reset is active high on Intel, will clear outputs until low */
+Pin 11 =  OE;    /* OE is hard wired to /OE can't be used as input for OE in registered mode */
+/*
+ * Outputs:  define outputs
+ */
+Pin 19 = !DMACLK;         /* The high time needs to be longer than 80ns */
+Pin 18 = PIT;             /* PIT uses PCLK/2 1.19MHz */
+Pin 17 = InvCLK;          /* Inverted CLK88 required for DMA HOLDA Flip Flop */
+Pin 16 = OutCLK;          /* Buffered CLK88 like PC-XT */
+Pin 15 = CLK3;            /* Additional inverter for delay */
+Pin 14 = CLK4;            /* Additional inverter for delay */
+Pin 13 = CLK5;            /* Additional inverter for delay */
+Pin 12 = InvReset;
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+InvCLK = !reset & !C88;
+OutCLK = !InvCLK;
+CLK3 = !OutCLK;
+CLK4 = !CLK3;
+CLK5 = !CLK4;
+DMACLK = !reset & InvCLK & CLK5;
+InvReset = !reset;
+
+/* D Flip Flop Counter feeds !Q into D and uses PCLK to cycle to divide by 2 for 1.19MHz, note without the reset this doesn't work reliably! */
+PIT.d = !reset & !PIT;

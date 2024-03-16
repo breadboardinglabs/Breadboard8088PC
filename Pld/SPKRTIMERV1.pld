@@ -1,0 +1,60 @@
+Name            SPKRTIMERV1 Breadboard PC Speaker Output & Refresh Timer V1;
+Partno          SPKRTIMERV1;
+Revision        1;
+Date            02/03/24;
+Designer        Dave Henry;
+Company         ;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/* 02/03/2024 V1 Created for Breadboard PC Video #23                                */
+
+
+/**********************************************************************************/
+/*  See XI 8088 Schematic for OUT1 Flip FLop and Speaker Output NAND              */
+/**********************************************************************************/
+
+/* Pin Map 
+          --------
+ OUT1    |1     24| Vcc
+ /RESET  |2     23| REF_DET 
+ SPKR    |3     22| NC 
+ OUT2    |4     21| NC 
+ NC      |5     20| NC 
+ NC      |6     19| NC 
+ NC      |7     18| NC 
+ NC      |8     17| NC 
+ NC      |9     16| NC 
+ NC      |10    15| TC 
+ /TC     |11    14| SPKROUT
+ Gnd     |12    13| NC
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  OUT1;  /* This is the Clock, every 15us */
+Pin 2  =  !RESET; 
+Pin 3  =  SPKR;  /* Port B Speaker output if not using timer */
+Pin 4  =  OUT2;  /* Timer Output 2 for Sound Square Wave */
+Pin 11 =  TC_IN; /* DMA TC needs to be inverted for ISA bus */
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+
+Pin 23 = REF_DET;       /* Refresh DRAM timer output toggled */
+Pin 14 = !SPKROUT;      /* Speaker Out NAND of SPKR and OUT2 */     
+Pin 15 = TC;            /* DMA TC for ISA bus */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   Flip-flop D Input .d  Async Reset .AR Sync PreSet .SP Output Enable .OE 
+*/
+ 
+REF_DET.ar = RESET;
+REF_DET.d = !REF_DET;   /* CLK will toggle REF_DET output value */
+SPKROUT = OUT2 & SPKR;
+TC = !TC_IN;

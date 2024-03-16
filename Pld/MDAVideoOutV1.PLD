@@ -1,0 +1,77 @@
+Name            MDAVidOutV1 MDA Video Adaptor Video Output;
+Partno          MDAVidOutV1;
+Revision        01;
+Date            11/02/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/****************************************************************************/
+/*                                                                          */
+/* 11/02/2024 V1 First version with both Mono and Colour support            */
+/*                                                                          */
+/****************************************************************************/
+
+/* Pin Map 
+          --------
+CharClk  |1     24| Vcc
+Cursor   |2     23| HS
+BlinkChr |3     22| VS
+BlinCur  |4     21| HSDly
+VideoEn  |5     20| VSDly
+SDots    |6     19| NC
+UnderlRA |7     18| NC
+BlinkEn  |8     17| NC
+NoDisplay|9     16| NC
+Underl   |10    15| +Video
+RVV      |11    14| +AlphaDots
+Gnd      |12    13| AT7 
+          --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  = CharClk;        /* Character clock in case needed for HS/VS delay */
+Pin 2  = Cursor;         /* CRTC Cursor output */
+Pin 3  = BlinkChr;       /* Blink Character Clock VS/32 */
+Pin 4  = BlinkCur;       /* Blink Cursor Clock VS/16 */
+Pin 5  = VideoEn;        /* CRT Control Video Enable=1 Note Not used here - this is handled by NoDisplay in attribute Mux */
+Pin 6  = SDots;          /* Output from Shift Register Fore = 1 Back = 0 */
+Pin 7  = UnderlRA;       /* Underline Row Address MDA=12, VGA=14 */
+Pin 8  = BlinkEn;        /* CRT Control Blink Enable = 1 */
+Pin 9  = NoDisplay;      /* Fore/Back Attributes = 000, 000 when Mono/BW or Video Enable = 0 from Attribute Mux */
+Pin 10 = Underl;         /* Fore Attribute = 001 when Mono/BW */
+Pin 11 = RVV;            /* Fore/Back Attributes = 000, 111 when Mono/BW */
+Pin 13 = AT7;            /* AT7 Determines Blink when BlinkEN */
+Pin 22 = VS;
+Pin 23 = HS;
+ 
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 14 = AlphaDots;      /* AlphaDots is video out excluding RVV reverse video, used for Intensity in Mux */
+Pin 15 = Video;          /* Video is video including RVV reverse video */
+Pin 16 = CGate;
+Pin 20 = VSDly;
+Pin 21 = HSDly;
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/* This C Gate condition needed intermediate term as too complex for AlphaDots condition, when this is true it turns off AlphaDots */
+CGate = BlinkChr & BlinkEn & AT7 & !Cursor;
+
+    /* see Sheet 5 Attribute and Video Control with Gates marked in blue. Note AlphaDots was only used for F & B Intensity Mux */
+    /* Gates         A                        B              D    C   D        E         F         */
+AlphaDots =  (!NoDisplay & Cursor & BlinkCur) #  (!NoDisplay & !CGate & (SDots # (Underl & UnderlRA)));
+           /*  Blink Cursor       Or   all F/B except 000,000  NAND with -Cursor cancel out */ 
+           /* Note MDA did not include NoDisplay condition for cursor A, C is NAND so ! on CGate */
+Video = AlphaDots $ RVV; /* Video goes to video Mux & as LVideo to Status Register - Gate G */
+
+VSDly.d = VS;
+HSDly.d = HS;

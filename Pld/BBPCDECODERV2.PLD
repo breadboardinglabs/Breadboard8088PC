@@ -1,0 +1,84 @@
+Name            PCDECODERV2 Breadboard PC Address Decoder V2;
+Partno          PCDECODERV2;
+Revision        2;
+Date            14/12/23;
+Designer        Dave Henry;
+Company         ;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/* 14/12/2023 V1 Created for Breadboard PC Video #7                              */
+/* 28/12/2023 V2 Corrected PIA & COM0 A16 condition Breadboard PC Video #10      */
+
+
+/*********************************************************************************/
+/* 00000 7FFFF RAM0 512K RAM Uses A19 for /CE                                    */
+/* 80000 9FFFF RAM1 128K RAM /RAM1CE, additional upper memory RAM could be added */
+/* D0000 D0FFF PIA For LED Display and Keypad /PIACE                             */
+/* D1000 D1FFF COM0 Serial Port /COM0CE                             */
+/* F8000 FFFFF ROM 32K for Nanocomp Monitor then PC BIOS                         */
+/*********************************************************************************/
+
+/* Pin Map 
+       --------
+A19   |1     24| Vcc
+A18   |2     23| I/O0
+A17   |3     22| I/O1
+A16   |4     21| I/O2
+A15   |5     20| /COM0CE
+A14   |6     19| /PIACE
+A13   |7     18| /ROMCE
+A12   |8     17| /RAM1CE
+/MEMR |9     16| E
+/MEMW |10    15| /RESET
+DEN   |11    14| /DEN
+Gnd   |12    13| RESET
+       --------
+*/
+
+/*
+ * Inputs:  All are signals from the 8088/8284/8288
+ */
+                                                         
+Pin 1  =  A19;
+Pin 2  =  A18;
+Pin 3  =  A17;
+Pin 4  =  A16;
+Pin 5  =  A15;
+Pin 6  =  A14;
+Pin 7  =  A13;
+Pin 8  =  A12;
+Pin 9  =  MEMR;
+Pin 10 =  MEMW;
+Pin 11 =  DEN;
+Pin 13 =  RESET;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+
+Pin 23 = IO0;      /*  */
+Pin 22 = IO1;      /*  */
+Pin 21 = IO2;      /*  */
+Pin 20 = !COM0CE;  /* MC68B50 Serial Port */
+Pin 19 = !PIACE;   /* PIA MC68B21 for LED display & keypad */
+Pin 18 = !ROMCE;   /* ROM */
+Pin 17 = !RAM1CE;  /* Second RAM for full 640K and upper memory area */
+Pin 16 = !E;       /* Motorola compatible E clock */
+Pin 15 = RESET_OUT;/* Inverted RESET active low */     
+Pin 14 = DEN_OUT;  /* Inverted Data Enable for 72ALS245 Bi-Di Buffer */
+
+/*
+ * Logic:  All CE outputs are active low signals in the target system.
+ */
+ 
+E = (MEMR & MEMW); /* Motorola 68xx series compatible clock, note NOT in Output definition */
+RAM1CE = A19 & !A18 & !A17; /* 80000-9FFFF */
+ROMCE = A19 & A18 & A17 & A16 & A15; /* F8000-FFFFF */
+/* V2 changed !A16 to A16 for PIACE and COM0CE */
+PIACE = A19 & A18 & !A17 & A16 & !A15 & !A14 & !A13 & !A12; /* D0000 */
+COM0CE = A19 & A18 & !A17 & A16 & !A15 & !A14 & !A13 & A12; /* D1000 */
+
+RESET_OUT= !RESET;
+DEN_OUT = !DEN;

@@ -1,0 +1,96 @@
+Name            CGALOGIC2V3 CGA Logic 2 Data bus buffer/latch logic changed to ATF22V10C;
+Partno          CGALOGIC2V3;
+Revision        03;
+Date            31/10/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G22V10;
+
+/********************************************************************************/
+/* 12/11/2024 V1 Created for Breadboard PC CGA video controller                 */ 
+/* Note  IOR/IOE and MEMR/MEMW were mapped to wrong pins vs KiCad & chip labels */
+/* 21/11/2024 V2 Added CLK88 to change /VRWE timing to avoid glitches           */ 
+/* 24/11/2024 V3 Anti snow changes to latch cpu data reads & writes to cycle 2  */ 
+/********************************************************************************/
+
+/* Pin Map 
+         --------
+ CLK    |1     24| Vcc
+ Qa     |2     23| Antisnow   
+ Qb     |3     22| VRWEDLY
+ Qc     |4     21| /646OE
+ Qd     |5     20| CLK88/2  
+ HIRES  |6     19| CBA
+ /IOW   |7     18| CAB    
+ /IOR   |8     17| NC
+ /MEMW  |9     16| DIR
+ /MEMR  |10    15| /VRWE
+ /CGARAM|11    14| /VROE  
+  Gnd   |12    13| /OE
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  CLK;
+Pin 2  =  Qa;
+Pin 3  =  Qb;
+Pin 4  =  Qc;
+Pin 5  =  Qd;
+Pin 6  =  HIRES;
+Pin 7  =  !IOW;
+Pin 8  =  !IOR;
+Pin 9  =  !MEMW;
+Pin 10 =  !MEMR;
+Pin 11 =  !CGARAM;
+Pin 13 =  !OE;
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+ 
+Pin 14 = !VROE;        /* Video RAM Output Enable */ 
+Pin 15 = !VRWE;        /* Video RAM Write Enable */
+Pin 16 = DIR;          /* 74LS646 Direction H=A->B L=B->A */
+Pin 18 = CAB;          /* 74LS646 Clock A-B on rising L to H */
+Pin 19 = CBA;          /* 74LS646 Clock B-A on rising L to H */
+Pin 20 = CLKDIV2;      /* CLK88/2 SAB now wired to 5V */
+Pin 21 = !646OE;       /* 74LS646 Output Enable Active L  - was missing ! */
+Pin 22 = VRWEDLY;      /* Delayed combination of MEMW and CGARAM for VRWE */
+Pin 23 = AntiSnow;      /* Dot Clock Cycle 2 for writing/reading 646 Latch to/from Video RAM */
+/* ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/* Note that default config likely to exhibit CGA snow interference
+   ADOE, VAOE and  CAB/CBA Data bus buffers/latches could be coordinated with gap between ATSRLatch and CHLatch to avoid this */
+
+/* Video RAM enabled for CRTC or when reading CGA RAM */
+VROE = !CGARAM # (MEMR & CGARAM) ;
+
+/* Video RAM write enabled when writing CGA RAM otherwise read*/
+/* V2 now clock flip flop with CLK to delay 110ns then & MEMW to shorten pulse */
+VRWEDLY.d = MEMW & CGARAM;
+/* VRWE = VRWEDLY & MEMW & CLK; By ANDing with the delayed VRWEDLY and MEMW the pulse is shortened */
+VRWE = VRWEDLY & MEMW & CLKDIV2 & CLK;  /* By ANDing with the delayed VRWEDLY and MEMW the pulse is shortened */
+
+/* 74LS646 Direction H=A->B L=B->A Direction is VRAM -> CPU unless writing VRAM */   
+DIR = MEMW & CGARAM;          
+
+/* 74LS646 Select A-B Active L, stored H, always passthough, depends on DIR=1 and OE */
+SAB = 'b'0;          
+/* 74LS646 Select B-A Active L, stored H, always passthough, depends on DIR=0 and OE  */
+SBA = 'b'0;          
+
+CAB = 'b'0;          /* 74LS646 Clock A-B on rising L to H */
+CBA = 'b'0;          /* 74LS646 Clock B-A on rising L to H */
+
+/* 74LS646 Output Enable when VRAM selected and either MEMR or MEMW, direction determined by DIR above */
+646OE = CGARAM & (MEMR # MEMW);
+
+AntiSnow = (!Qc & !Qa & Qb & HIRES) # (!Qd & Qb & !Qc & !Qa & !HIRES ); /* ChLatch cycle 0, anti snow cycle 2, ATSR Latch Cycle 4/7 (4 Col) */
+CLKDIV2.d = !CLKDIV2; /* CLK88 / 2) */

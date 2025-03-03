@@ -5,7 +5,7 @@ http://searle.x10host.com/labels/index.html
 My Chip Labels are not quite as neat as Grant's but do the job.
 I use Scalable Vector Graphics and use the open source InkScape application to edit them.
 Download from https://inkscape.org/
-I then Export them into PDF for printiing.
+I then Export them into PDF for printing.
 Feel free to copy and improve them.
 
 The overline is done by using the Unicode "Combining Overline" U+0305

@@ -1,0 +1,105 @@
+Name            CGALOGIC3V2 CGA Logic 3 Data bus buffer/latch logic for anti snow;
+Partno          CGALOGIC3V2;
+Revision        02;
+Date            30/11/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G22V10;
+
+/********************************************************************************/
+/* 30/11/2024 V1 Created for Breadboard PC CGA video controller anti snow       */ 
+/* 05/12/2024 V2 Added RDADDLY, CABDLY and DIRD, VAOE now uses CPUACTD+1        */ 
+/* To Do need to separate /VAOE and CPUACTD+ and just make VAOE inverse of ADOE */
+/********************************************************************************/
+
+/* Pin Map 
+          --------
+ CLK     |1     24| Vcc
+ ANTISNOW|2     23| DIRD Delayed Direction 
+ CPUACT  |3     22| ADCLK Write on CAB, read on AntiSnow and CPU Activity
+ CAB     |4     21| /ADOE  
+ RDAD    |5     20| /VAOE and CPUACTD+1  (Same values)
+ NC      |6     19| CBA Read when AntiSnow & CPU Activity
+ CABDLY  |7     18| CPUACTD   
+ ASWE    |8     17| /646OE & On Write when AntiSnow & CPU Activity, On read when MEMR & CGARAM
+ /MEMW   |9     16| DIR 0 unless  Write when AntiSnow & CPU Activity
+ /MEMR   |10    15| /VRWE
+ /CGARAM |11    14| /VROE  
+ Gnd     |12    13| /NC
+          --------
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  CLK;         /* Same as ANTISNOW */
+Pin 2  =  ANTISNOW;    /* Clock cycle 2 between character latch and attribute latch 'quiet' period for updates avoiding snow */
+                       /* For rising edge triggered latches ANTISNOW is start of pulse !ANTISNOW is end of pulse */
+Pin 3  =  CPUACT;      /* CPU generated activity indicating read or write for CGA RAM */
+Pin 4  =  CAB;         /* 74LS646 Clock for CPU - VRAM write, was /VRWE before anti snow changes */
+Pin 5  =  RDAD;        /* Read Address Latch enable, shortened MEMR and CGARAM delayed to allow address & data to settle */
+Pin 7  =  CABDLY;      /* Delayed MEMW & CGARAM without shortened pulse */
+Pin 8  =  ASWE;        /* ANTISNOW Write Enable, shorted 20ns pulse at end of ANTISNOW */
+Pin 9  =  !MEMW;       /* CPU Memory Read  active low but +ve logic in PLD */
+Pin 10 =  !MEMR;       /* CPU Memory Write active low but +ve logic in PLD */
+Pin 11 =  !CGARAM;     /* CGA RAM Chip Select active low but +ve logic in PLD */ 
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+ 
+Pin 14 = !VROE;        /* Video RAM Output Enable */ 
+Pin 15 = !VRWE;        /* Video RAM Write Enable */
+Pin 16 = DIR;          /* 74LS646 Direction H=A->B L=B->A */
+Pin 17 = !646OE;       /* 74LS646 Output Enable, on Write to VRAM or Read from will be enabled on CPU Activity and AntiSnow */ 
+Pin 18 = CPUACTD;      /* Value of CPU Activitity latched by ANTISNOW */
+Pin 19 = !CBA;         /* 646 Clock for CPU Read from VRAM 74LS646 Clock B-A on rising L to H - Invert for latch  end of pulse*/
+Pin 20 = CPUACTD1;     /* Also now VAOE Value of CPU Activitity latched by ANTISNOW delayed by 1 clock cycle for CPU Activity reset */
+Pin 21 = !ADOE;        /* Video CRTC Address Output Enable */
+Pin 22 = ADCLK;        /* CPU Address Latch Clock */
+Pin 23 = DIRD;         /* DIR delayed by ANTISNOW Clock */
+
+/* ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/* Note that default config likely to exhibit CGA snow interference
+   ADOE, VAOE and  CAB/CBA Data bus buffers/latches could be coordinated with gap between ATSRLatch and CHLatch to avoid this */
+
+CPUACTD.d = CPUACT;      /* Latched value of CPU Activity, indicates need to read or write VRAM next ANTISNOW Pulse */
+CPUACTD1.d = CPUACTD;    /* Delay by another cycle for async reset */
+CPUACTD.ar = CPUACTD1 & !ANTISNOW;   /* Reset on next cycle */
+CPUACTD1.ar = CPUACTD1 & !ANTISNOW;  /* Reset on next cycle */
+
+/* Video RAM enabled for CRTC or when reading CGA RAM i.e. NOT writing to RAM */
+VROE =  !VRWE;
+
+VRWE = ASWE & CPUACTD1 & DIR; /* Write data to VRAM when DIR is Write and CPU Activity has been latched by rising edge of ANTISNOW during ANTISNOW cycle */
+
+/* 74LS646 Direction H=A->B L=B->A Direction is VRAM -> CPU unless writing VRAM, now latched by ANTISNOW clock */   
+/* DIR.d = MEMW & CGARAM; */
+DIRD.d = CABDLY; /* This is MEMW & CGARAM delayed by 1 CLK88 by Logic 2 PLD, clocked by ANTISNOW */
+DIR.d = DIRD;    /* Delay clocked by ANTISNOW */
+DIRD.ar = CPUACTD1 & !ANTISNOW;
+DIR.ar = CPUACTD1 & !ANTISNOW; 
+
+/* 74LS646 Output Enable when VRAM selected and either MEMR or MEMW, direction determined by DIR above */
+/* During Write only enable 646 during Write CPU Activity and during ANTISNOW cycle OR during Read of data from VRAM to 646 Buffer */
+
+/* Now different rule from ADOE and needs to be enabled for MEMR & CGARAM read cycle, add DIR (write) so stop 2nd read */
+646OE = (ANTISNOW & CPUACTD1 & DIR) # (MEMR & CGARAM);
+
+/* ADOE now different from 646OE */
+ADOE =  ANTISNOW & CPUACTD1 & (DIR # CGARAM);
+
+CBA = ANTISNOW & CPUACTD1 & !DIR & CGARAM; /* Clock 74LS646 Clock B-A on rising L to H when DIR is Read (1) and CPU Activity has been latched by rising edge of ANTISNOW during ANTISNOW cycle Include CGARAM condition to stop 2nd read */
+
+/* VAOE was !646OE but same as CPUACTD1  Was ADOE - CRTC Address Latch Output enabled when CPU Address Latch outputs are disabled */
+
+/* Latch CPU address at same time as saving data on write and at delayed/shortened read, extra condition to stop double latch during reads but keep writes the same MEMW=1 DIR not set yet!                    */
+ADCLK = (CAB # RDAD) & (MEMW # !CPUACTD); 
+

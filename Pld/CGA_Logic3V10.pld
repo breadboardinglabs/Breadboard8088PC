@@ -1,0 +1,109 @@
+Name            CGALOGIC3V10 CGA Logic 3 Data bus buffer/latch logic for anti snow;
+Partno          CGALOGIC3V10;
+Revision        10;
+Date            13/12/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G22V10;
+
+/********************************************************************************/
+/* 30/11/2024 V1 Created for Breadboard PC CGA video controller anti snow       */ 
+/* 05/12/2024 V2 Added RDADDLY, CABDLY and DIRD, VAOE now uses CPUACTD+1        */ 
+/* 13/12/2024 V10 Reworked to use 6809 Anti Snow approach                       */ 
+/********************************************************************************/
+
+/* Pin Map 
+          --------
+ CLK     |1     24| Vcc
+ CQa     |2     23| DCQ0
+ CQb     |3     22| DCQ1
+ CQc     |4     21| CAB
+ CQd     |5     20| /CBA
+ HIRES   |6     19| /ADOE
+ GRPH    |7     18| /VRWE
+ DIR     |8     17| NC
+ CPUACT  |9     16| ADCLK
+ NC      |10    15| DCQ2
+ NC      |11    14| DCQ3
+ Gnd     |12    13| NC
+          --------
+*/
+
+/*
+ * Inputs:  define inputs, all positive logic, true = 1   
+ */
+
+Pin 1  = CLK;          /* CPUACTDOTCLK Dot Clock Gated by CPUACT */
+Pin 2  = CQa;          /* Qa CGA Cycle when MEMR or MEMW started */
+Pin 3  = CQb;          /* Qb CGA Cycle when MEMR or MEMW started */
+Pin 4  = CQc;          /* Qc CGA Cycle when MEMR or MEMW started */
+Pin 5  = CQd;          /* Qd CGA Cycle when MEMR or MEMW started - Not sure Antisnow for 40 column mode practical? */
+Pin 6  = HIRES;        /* Needed to switch between 40 column mode and other modes */
+Pin 7  = GRPH;         /* Needed to switch between 40 column mode and other modes */
+Pin 8  = DIR;          /* 74LS646 Direction H=A->B L=B->A Write to Video RAM = 1, latched in CGA Logic 2 by CPUACT */
+Pin 9  = CPUACT;       /* CPU Activity, start or Read or Write to Video RAM */
+
+/*
+ * Outputs:  define outputs Note Pins 18 and 19 have the most terms (16) then 20 & 17 (14), 21 & 16 (12), 22 & 15 (10) and 23 & 14 (8)
+ */
+ 
+Pin 23 = DCQ0;         /* DCQ0 Current CGA Cycle after MEMR or MEMW started */
+Pin 22 = DCQ1;         /* DCQ1 Current CGA Cycle after MEMR or MEMW started */
+Pin 15 = DCQ2;         /* DCQ2 Current CGA Cycle after MEMR or MEMW started */
+Pin 14 = DCQ3;         /* DCQ3 Current CGA Cycle after MEMR or MEMW started */
+
+Pin 18 = !VRWE;        /* Video RAM Write Enable */
+
+Pin 21 = CAB;          /* 646 Clock CAB for CPU Write to VRAM 74LS646 Clock A-B on rising L to H */
+Pin 20 = !CBA;         /* 646 Clock for CPU Read from VRAM 74LS646 Clock B-A on rising L to H - Invert for latch  end of pulse */
+Pin 19 = !ADOE;        /* 74LS574 CPU Address Latch Output Enable */
+
+Pin 16 = ADCLK;        /* Clock for latching CPU Address to 74LS574 latches */
+
+/*
+ * Logic: ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input 
+ */
+
+field CQ_CYCLE = [CQd,CQc,CQb,CQa];
+field DC_CYCLE = [DCQ3..DCQ0];
+
+/* When CPUACT goes low will clear Q0-Q3, note other Flip-Flops in PLD will also clear as AR is shared */
+DCQ0.ar = !CPUACT;
+DCQ1.ar = !CPUACT;
+DCQ2.ar = !CPUACT;
+DCQ3.ar = !CPUACT;
+
+/* These are the standard conditions needed for a 4 bit counter 0-15/0x0-0xF */
+DCQ3.d = ((!DCQ3 & DCQ2 & DCQ1 & DCQ0) # (DCQ3 & !(DCQ2 & DCQ1 & DCQ0)));
+DCQ2.d = ((!DCQ2 & DCQ1 & DCQ0) # (DCQ2 & !(DCQ1 & DCQ0)));
+DCQ1.d = (!DCQ1 & DCQ0 # DCQ1 & !DCQ0);
+DCQ0.d = !DCQ0;
+
+/* These intermediate results may be required if any rules have too many terms */
+/* DC69 now DC58 and now DC47 in V4 post E & E CPU Fix, VRW stays the same
+DC47 = (DC_CYCLE:4 #DC_CYCLE:5 # DC_CYCLE:6 # DC_CYCLE:7);
+DC36 = (DC_CYCLE:3 # DC_CYCLE:4 # DC_CYCLE:5 # DC_CYCLE:6);  */
+
+/* DC912 now DC7A for E6&E7 post E & E CPU Fix, VRW move left 1, E5 now separate 8-B */
+/* Note that DC_CYCLE:10 is Hex so 16 decimal 10=A 
+DC7A = (DC_CYCLE:7 # DC_CYCLE:8 # DC_CYCLE:9 # DC_CYCLE:A); */
+
+/* DIR Already combined with CGARAM Video RAM select CLK should do first half of cycle */
+VRWE = DIR & (
+               ((CQ_CYCLE:0 # CQ_CYCLE:4) & (CLK & DC_CYCLE:6)) # 
+               ((CQ_CYCLE:1 # CQ_CYCLE:5) & (CLK & DC_CYCLE:5)) # 
+               ((CQ_CYCLE:2 # CQ_CYCLE:6) & (CLK & DC_CYCLE:8)) # 
+               ((CQ_CYCLE:3 # CQ_CYCLE:7) & (CLK & DC_CYCLE:7))
+              );
+
+ADCLK = DC_CYCLE:3;        /* Need Address Latch Clock for Read and Write */
+CAB = DC_CYCLE:3 & DIR ;   /* Need CAB Clock for Write only */
+
+CBA = !DIR & ADOE;         /* Same timing as ADOE but only for read */
+
+ADOE = ((CQ_CYCLE:0 # CQ_CYCLE:4) & (DC_CYCLE:5 & !CLK # DC_CYCLE:6)) # 
+       ((CQ_CYCLE:1 # CQ_CYCLE:5) & (DC_CYCLE:4 & !CLK # DC_CYCLE:5)) # 
+       ((CQ_CYCLE:2 # CQ_CYCLE:6) & (DC_CYCLE:7 & !CLK # DC_CYCLE:8)) # 
+       ((CQ_CYCLE:3 # CQ_CYCLE:7) & (DC_CYCLE:6 & !CLK # DC_CYCLE:7));

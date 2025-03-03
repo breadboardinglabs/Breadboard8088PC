@@ -1,0 +1,97 @@
+Name            CGACOLMUXV3 CGA Colour Multiplexer;
+Partno          CGACOLMUXV3;
+Revision        03;
+Date            17/03/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/****************************************************************************/
+/* This PLD provides the video multiplexer for MDA Video Controller         */
+/* 11/02/2024 V1 Initial version supporting Mono and Colour output          */
+/* 17/03/2024 V2 Mono on reset BW from 74LS175 to /Q1 0 gives BW, 1 Col     */
+/*               Pin 13 Green (L) or White/Grey (H) palette for Mono        */
+/*               Note BWCol is true for Mono in the rules below no change   */
+/*               Supress intensity background AT7 with NoDisplay            */ 
+/* 27/10/2024 V3 CGA based on V2 of MDA                                     */
+/****************************************************************************/
+
+/* Pin Map 
+         --------
+ CRColSl|1     24| Vcc
+ CRBackI|2     23| CRBlue
+  C0    |3     22| CRGreen
+  C1    |4     21| CRRed
+  I     |5     20| C1C0Z
+  R     |6     19| +AlphaDots
+  G     |7     18| NC
+  B     |8     17| P3
+  640BW |9     16| P2
+  NC    |10    15| P1
+  GRPH  |11    14| P0
+  Gnd   |12    13| CRIntensity 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  = CRColSl;    /* Colour Register Colour Select 4 Col set select */
+Pin 2  = CRBackI;    /* Colour Register background intensity */
+Pin 3  = C0;         /* 320 x 200 4 colour C0 - Green */
+Pin 4  = C1;         /* 320 x 200 4 colour C1 - Red (note Blue determined by ColSl) */
+Pin 5  = I;          /* Mux Intensity - note includes fore/back depending on alphaDots/sdot */
+Pin 6  = R;          /* Mux Red */
+Pin 7  = G;          /* Mux Green */
+Pin 8  = B;          /* Mux Blue */
+Pin 9  = 640BW;      /* 640 x 200 2 Colour Graphics Mode */
+Pin 11 = GRPH;       /* CGA Control Graphics 320x200 if 640BW=0 */
+Pin 13 = CRInten;    /* Colour Register Intensity */
+Pin 18 = Overscan;   /* True when Display Enable=0 and neither of HS or VS active (note HS inverted for 70Hz) Output (CR I,R,G,B) */
+Pin 19 = AlphaDots;  /* Input from Video Out PLD, switch background intensity from Foreground to Background but ignores reverse video */
+Pin 21 = CRRed;      /* Colour Register Red */
+Pin 22 = CRGreen;    /* Colour Register Green */
+Pin 23 = CRBlue;     /* Colour Register Blue */
+
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 20 = C1C0Z;       /* True when C1=0 and C0=0 so use background colour for 4 colour graphics */
+Pin 17 = P3;          /* Video DAC P3, Intensity */
+Pin 16 = P2;          /* Video DAC P2, Colour=Red */
+Pin 15 = P1;          /* Video DAC P1, Colour=Green */
+Pin 14 = P0;          /* Video DAC P0, Colour=Blue */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+C1C0Z = !C1 & !C0;  /* True when C1=0 and C0=0 so need 4 Colour Backgroud, False when (C1=1 or C0=1) */
+
+/* C1C0Z & GRPH & !640BW = CR(I,R,G,B)
+SEL_BLUE
+640BW & AlphaDots & (CR I,R,G,B) 
+!GRPH & (I,R,G,B)
+(C0=1 # C1=1) & GRPH & !640BW & C1 (Red)
+(C0=1 # C1=1) & GRPH & !640BW & C0 (Green)
+(C0=1 # C1=1) & GRPH & !640BW & CRColSl (Blue)
+ */
+
+/* Since Video DAC P4=BWCol then no point in including in PLD B&W Palette values 0x10 - 0x1f, Colour Palette Values 0x00 - 0x0F */
+
+/*   Text Mode=I,   4 Colour=Background_i,      640x200 and dot=CRInten,        640x200 background will be black */
+P3 = (!GRPH & I) # (GRPH & !640BW & CRBackI) # (GRPH & 640BW & CRInten & AlphaDots); /* Video DAC P3 Intensity */
+
+/*   Text Mode=R,   Overscan not 640=CRRed,        640x200 and dot=CRRed,         4 Colour foreground C1=1 or C0=1=C1,   4 Colour background C1=0 and C0=0 =CRRed */
+P2 = (!GRPH & R) # (Overscan & CRRed & !640BW) # (GRPH & 640BW & CRRed & AlphaDots) # (GRPH & !640BW & !C1C0Z & C1) # (GRPH & !640BW & C1C0Z & CRRed); /* Video DAC P2 Red */
+
+/*   Text Mode=G,   Overscan not 640=CRGreen,        640x200 and dot=CRGreen,             4 Colour foreground C1=1 or C0=1=C0,   4 Colour background C1=0 and C0=0 =CRGreen */
+P1 = (!GRPH & G) # (Overscan & CRGreen & !640BW) # (GRPH & 640BW & CRGreen & AlphaDots) # (GRPH & !640BW & !C1C0Z & C0)    # (GRPH & !640BW & C1C0Z & CRGreen); /* Video DAC P1 Green */
+
+/*   Text Mode=B,   Overscan not 640=CRBlue,        640x200 and dot=CRBlue,             4 Colour foreground C1=1 or C0=CRColSl,   4 Colour background C1=0 and C0=0 =CRBlue */
+P0 = (!GRPH & B) # (Overscan & CRBlue & !640BW) # (GRPH & 640BW & CRBlue & AlphaDots) # (GRPH & !640BW & !C1C0Z & CRColSl)    # (GRPH & !640BW & C1C0Z & CRBlue); /* Video DAC P0 Blue */

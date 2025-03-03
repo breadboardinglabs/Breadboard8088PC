@@ -1,0 +1,112 @@
+Name            CGALOGIC2V6 CGA Logic 2 Data bus buffer/latch logic changed to ATF22V10C;
+Partno          CGALOGIC2V6;
+Revision        06;
+Date            31/10/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G22V10;
+
+/********************************************************************************/
+/* 12/11/2024 V1 Created for Breadboard PC CGA video controller                 */ 
+/* Note  IOR/IOE and MEMR/MEMW were mapped to wrong pins vs KiCad & chip labels */
+/* 21/11/2024 V2 Added CLK88 to change /VRWE timing to avoid glitches           */ 
+/* 24/11/2024 V3 Anti snow changes to latch cpu data reads & writes to cycle 2  */
+/*               SAB and SBA now hard wired to 5V Use Stored Value              */ 
+/* 30/11/2024 V4 Further Anti snow changes and RDYWAIT on read                  */
+/* 06/12/2024 V5 Further Anti snow changes add DotClk and extend AntiSnow 20ns  */
+/* 11/12/2024 V6 Further Anti snow changes move CAB and RDAD earlier            */
+/********************************************************************************/
+
+/* Pin Map 
+         --------
+ CLK    |1     24| Vcc
+ Qa     |2     23| ANTISNOW   
+ Qb     |3     22| CABDLY
+ Qc     |4     21| RDADDLY
+ Qd     |5     20| CLK88/2  
+ HIRES  |6     19| ASWE ANTISNOW Write Enable Short 20ns pulse at end of ANTISNOW
+ DotClk |7     18| CAB    
+ /CBA   |8     17| RDAD Latch on Low to High at end of pulse so needs inverse for ADCLK
+ /MEMW  |9     16| CPUACT
+ /MEMR  |10    15| RDY/WAIT
+ /CGARAM|11    14| RDY/WAIT+1
+  Gnd   |12    13| GRPH
+         --------
+IOR and IOW not used in PLD but used to connect to CGA Logic 1
+
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  CLK;  /* CPU88 Clock 1/3 2/3 duty cycle approx 5.33MHz with overclocked 16MHz main crystal */
+Pin 2  =  Qa;
+Pin 3  =  Qb;
+Pin 4  =  Qc;
+Pin 5  =  Qd;
+Pin 6  =  HIRES;
+Pin 7 =   DotClk;
+Pin 8 =   !CBA;
+Pin 9  =  !MEMW;
+Pin 10 =  !MEMR;
+Pin 11 =  !CGARAM;
+Pin 13 =  GRPH;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 14 = RDYWAIT1;     /* CPU RDY/WAIT +1 when H indicates more cycles needed for read */ 
+Pin 15 = RDYWAIT;      /* CPU RDY/WAIT when H indicates more cycles needed for read */ 
+Pin 16 = CPUACT;       /* CPU Activity when either MEMR or MEMW with CGARAM and associated delays and plus shortening */
+Pin 17 = RDAD;         /* Read Address Latch for read VRAM */
+Pin 18 = CAB;          /* 646 Clock for CPU Write to VRAM 74LS646 Clock A-B on rising L to H */
+Pin 19 = ASWE;         /* ANTISNOW Write Enable shorted 20ns pulse at end of ANTISNOW */
+Pin 20 = CLKDIV2;      /* CLK88/2 SAB now wired to 5V */
+Pin 21 = RDADDLY;      /* Delayed combination of MEMR and CGARAM for VR Read latch CPU Address */
+Pin 22 = CABDLY;       /* Delayed combination of MEMW and CGARAM for CAB VR Write */
+Pin 23 = ANTISNOW;     /* Dot Clock Cycle 2 for writing/reading 646 Latch to/from Video RAM */
+/* ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/* V4 now clock flip flop with CLK to delay 110ns then & MEMW to shorten pulse */
+CLKDIV2.d = !CLKDIV2; /* CLK88 / 2) */
+
+CABDLY.d = MEMW & CGARAM;
+RDADDLY.d = MEMR & CGARAM;
+
+CPUACT = RDADDLY # CABDLY;  /* Indicate CPU Activity to process during next AntiSnow cycle, includes delay but no shortening will be latched on next AntiSnow cycle */
+
+/* Originally VRWE = VRWEDLY & MEMW & CLK; By ANDing with the delayed VRWEDLY and MEMW the pulse is shortened */
+/* For Antisnow need to move CAB and RDAD a little earlier change &CLKDIV2 & CLK to & !CLKDIV2 & !CLK note it appears cLK is inverted somewhere (not in config) */
+CAB = CABDLY & MEMW & !CLKDIV2 & CLK;  /* By ANDing with the delayed CABDLY and MEMW the pulse is shortened, now changed from VRWE to CAB 74LS646 Clock A-B on rising L to H */
+RDAD = RDADDLY & MEMR & !CLKDIV2 & CLK;  /* By ANDing with the delayed RDADDLY and MEMR the pulse is shortened, now changed to provide latch for CPU Address 74LS574s */
+
+/*           Modes other than 40x25                       40x25 Mode  as some test utilities don't use BIOS to set mode so HIRES low for 320x200 4 colour */
+/* ANTISNOW = (!Qc & !Qa & Qb & (HIRES # GRPH )) # (!Qd & Qb & !Qc & !Qa & !HIRES & !GRPH); ChLatch cycle 0, anti snow cycle 2, ATSR Latch Cycle 4/7 (4 Col) */
+
+/* ChLatch cycle 0, anti snow cycle 2, ATSR Latch Cycle 4/7 (4 Col) now extended by half DotClock cycle 20ns */
+/* Delay 20ns ANTISNOW = (((!Qc & !Qa & Qb) # (!Qc & Qa & Qb & DotClk)) & (HIRES # GRPH )) # (((!Qd & Qb & !Qc & !Qa) # (!Qd & Qb & !Qc & Qa & DotClk)) & !HIRES & !GRPH); */
+/* Advance 20ns */
+ANTISNOW = (((!Qc & !Qa & Qb) # (!Qc & Qa & !Qb & !DotClk)) & (HIRES # GRPH )) # (((!Qd & Qb & !Qc & !Qa) # (!Qd & Qb & !Qc & Qa & !DotClk)) & !HIRES & !GRPH);
+
+/* ANTISNOW = (((!Qc & !Qa & Qb) # (!Qc & Qa & !Qb & !DotClk) # (!Qc & Qa & Qb & DotClk)) & (HIRES # GRPH )) # (((!Qd & Qb & !Qc & !Qa) # (!Qd & Qb & !Qc & Qa & !DotClk)) & !HIRES & !GRPH); attempt to move write later*/
+
+/* ANTISNOW = (((!Qc & !Qa & Qb) # (!Qc & Qa & Qb & DotClk)) & (HIRES # GRPH )) # (((!Qd & Qb & !Qc & !Qa) # (!Qd & Qb & !Qc & Qa & !DotClk)) & !HIRES & !GRPH); */
+
+/* ASWE was using !DotClk but misses a few updates, remove ! from DotClk and !Qa to Qa now reversed change ! */
+ASWE = ( (!Qc & !Qa & Qb & !DotClk) & (HIRES # GRPH )) # ((!Qd & Qb & !Qc & !Qa & !DotClk) & !HIRES & !GRPH); 
+
+/* ASWE = ( (!Qc & Qa & Qb & DotClk) & (HIRES # GRPH )) # ((!Qd & Qb & !Qc & !Qa & !DotClk) & !HIRES & !GRPH);  attempt to move write later*/
+
+
+
+RDYWAIT.d = (MEMR & CGARAM) & !RDYWAIT1;  /* Add clock Cycles to MEMR to extend read, & !RDYWAIT1 condition only allows one wait per MEMR cycle */
+RDYWAIT1.d = (RDYWAIT # RDYWAIT1) & MEMR; /* When MEMR no longer active /MEMR high MEMR low then RDYWAIT1 goes Low allowing next RDYWAIT cycle */
+
+/*  RDYWAIT1.AR = !MEMR;   WARNING Only 1 AR term per PLD - Don't Use!!!! */
+ 

@@ -1,0 +1,99 @@
+Name            CGALOGIC2V11 CGA Logic 2 Data bus buffer/latch logic changed to ATF22V10C and now using fields DC & CA;
+Partno          CGALOGIC2V11;
+Revision        11;
+Date            13/12/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G22V10;
+
+/************************************************************************************/
+/* 12/11/2024 V1 Created for Breadboard PC CGA video controller                     */ 
+/* Note  IOR/IOE and MEMR/MEMW were mapped to wrong pins vs KiCad & chip labels     */
+/* 21/11/2024 V2 Added CLK88 to change /VRWE timing to avoid glitches               */ 
+/* 24/11/2024 V3 Anti snow changes to latch cpu data reads & writes to cycle 2      */
+/*               SAB and SBA now hard wired to 5V Use Stored Value                  */ 
+/* 30/11/2024 V4 Further Anti snow changes and RDYWAIT on read                      */
+/* 06/12/2024 V5 Further Anti snow changes add DotClk and extend AntiSnow 20ns      */
+/* 11/12/2024 V6 Further Anti snow changes move CAB and RDAD earlier                */
+/* 13/12/2024 V10 Reworked to use 6809 Anti Snow approach                           */
+/* 13/12/2024 V11 Switch CQx Qb,Qc,Qd for 40 Column Mode using MODEO, remove CQd    */
+/*                Use SYNCCPUACT from 74LS74 to gate dot clock to sync CPUACT with  */
+/*                video cycles.                                                     */
+/************************************************************************************/
+
+/* Pin Map  
+          --------
+ CLK     |1     24| Vcc
+ Qa      |2     23| CQa
+ Qb      |3     22| CQb
+ Qc      |4     21| CQc
+ Qd      |5     20| CPUACTS1 Input CPUACTSYNC +1 Dot Clock
+ DOTCLK  |6     19| CPUACT
+ /VRWE   |7     18| CPUACTDOTCLK
+ /ADOE   |8     17| DIR
+ /MEMW   |9     16| /VROE
+ /MEMR   |10    15| /VAOE
+ /CGARAM |11    14| /646OE
+  Gnd    |12    13| NC
+          --------
+*/
+
+
+/*
+ * Inputs:  define inputs, all positive logic, true = 1  
+ */
+
+Pin 1  =  CLK;         /* Need equivalent of 6809 E which is MEMR # MEMR CPU Activity syncd to Dot Clock. Pin 1 wired to CPUACTSYNC */
+Pin 2  =  Qa;          /* CGA Clock input for 25.175Mhz/2 */
+Pin 3  =  Qb;          /* CGA Clock input for 25.175Mhz/4 */
+Pin 4  =  Qc;          /* CGA Clock input for 25.175Mhz/8 */
+Pin 5  =  Qd;          /* CGA Clock input for 25.175Mhz/16 */
+Pin 6  =  DOTCLK;      /* Dot Clk 25Mhz/12.5Mhz needed for gating via CPUACT */
+Pin 7  =  !VRWE;       /* Video RAM Write Enable from CGA Logic 3 for inverting for VROE */
+Pin 8  =  !ADOE;       /* Consolidated Output Enable from CGA Logic 3, Invert for VAOE */
+Pin 9  =  !MEMW;       /* CPU Memory Read  active low but +ve logic in PLD */
+Pin 10 =  !MEMR;       /* CPU Memory Write active low but +ve logic in PLD */
+Pin 11 =  !CGARAM;     /* CGA RAM Chip Select active low but +ve logic in PLD */ 
+Pin 13 =  MODE0;       /* True if 40 Column Text Mode from CGA Logic 3 when !HIRES & !GRPH */
+
+Pin 20 =  CPUACTS1;    /* CPUACT which is synced with Dot Clock by external flip flop nd delayed by further Dot Clock to extend CPUACTDOTCLK */
+/*
+ * Outputs:  define outputs Note Pins 18 and 19 have the most terms (16) then 20 & 17 (14), 21 & 16 (12), 22 & 15 (10) and 23 & 14 (8)
+ */
+Pin 23 = CQa;          /* Qa CGA Cycle when MEMR or MEMW started */
+Pin 22 = CQb;          /* Qb CGA Cycle when MEMR or MEMW started */
+Pin 21 = CQc;          /* Qc CGA Cycle when MEMR or MEMW started */
+ 
+Pin 19 = CPUACT;       /* CPU Activity when either MEMR or MEMW with CGARAM no delays or shortening */
+Pin 18 = CPUACTDOTCLK; /* Dot Clock Gated by CPUACT to use with other PLD to count cycles since MEMR/MEMW */
+Pin 17 = DIR;          /* 74LS646 Direction H=A->B L=B->A Clocked on CPUACT rising */
+
+Pin 16 = !VROE;        /* Video RAM Output Enable, always enabled except when writing VROE = !VRWE  */ 
+Pin 15 = !VAOE;        /* CRTC Video Address Multiplexer Output Enable, inverted CBAOE */
+
+Pin 14 = !646OE;       /* Video Data Buffer/Latch Output Enable. Enabled during Read for MEMR & CGARAM, enabled during CBAOE for Write */
+
+/*
+ * Logic: ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input 
+ */
+/* Need to make sure CPUACT input to CLK changes on DotClock Edge so get whole cycle. */
+CPUACT = (MEMR # MEMW) & CGARAM; /* Equivalent of 6809 5 Clock Signal, indicates CPU activity with Video RAM, used as clock for this PLD */
+VROE =  !ADOE & DIR # !DIR;   /* Video RAM Output Enable, always enabled except when writing, widen pulse from !VRWE to ADOE but only on write */ 
+
+VAOE =  !ADOE;         /* CRTC Video Address Multiplexer Output Enable */ 
+
+/* 74LS646 Video Data Buffer/Latch Output Enable. Enabled during ADOE for Write, Enabled during Read for CPUACT (MEMR & CGARAM)        , use DIR as latched with CGARAM but need CGARAM as well as !DIR is not write and CGARAM */
+646OE = (DIR & ADOE) # (!DIR & CGARAM & CPUACT);
+
+/* CQa.d = (Qa & !MODE0) # (Qb & MODE0); Qa CGA Cycle when MEMR or MEMW started, MODE0 use Qb */
+/* CQb.d = (Qb & !MODE0) # (Qc & MODE0); Qb CGA Cycle when MEMR or MEMW started, MODE0 use Qc */
+/* CQc.d = (Qc & !MODE0) # (Qd & MODE0); Qc CGA Cycle when MEMR or MEMW started, MODE0 use Qd */
+CQa.d = Qa; /* Qa CGA Cycle when MEMR or MEMW started, MODE0 use Qb */
+CQb.d = Qb; /* Qb CGA Cycle when MEMR or MEMW started, MODE0 use Qc */
+CQc.d = Qc; /* Qc CGA Cycle when MEMR or MEMW started, MODE0 use Qd */
+
+/* CLK will be CPUACTSYNC syncd to DotClock, CPUACTS1 will be +2 Dot Clocks, need to keep this gated clock running lomger as sometimes miss DC8, BUT also need CLK to be earlier */
+CPUACTDOTCLK = (CLK # CPUACTS1) & DOTCLK; /* DOTCLK gated by Synced CPU Activity so can count cycles since start of MEMR or MEMW, was missing last DC 8 cycle as CPUACT finished earlier */ 
+DIR.d = MEMW & CGARAM;          /* DIR = 1 for CPU Writing to Video RAM, otherwise 0 for Reading, latched on CPU Activity, note when 0 then CGARAM may not be selected */

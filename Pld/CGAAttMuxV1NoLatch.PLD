@@ -1,0 +1,95 @@
+Name            CGAAttMuxV2 CGA Video Adaptor Attribute Multiplexer V2 No Latch;
+Partno          CGAAttMuxV2;
+Revision        02;
+Date            01/11/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/****************************************************************************/
+/* This PLD provides the video multiplexer for MDA Video Controller         */
+/* 11/02/2024 V1 Initial version supporting Mono and Colour output          */
+/* 17/03/2024 V2 Mono on reset BW from 74LS175 to /Q1 0 gives BW, 1 Col     */
+/*               Pin 13 Green (L) or White/Grey (H) palette for Mono        */
+/*               Note BWCol is true for Mono in the rules below no change   */
+/*               Supress intensity background AT7 with NoDisplay            */ 
+/* 27/10/2024 V1 CGA Initial version based on MDA V2                        */
+/*               This PLD provides RGBI based on fore/back and C1 & C0      */
+/*               for 320x200 4 colour mode and blink attribute AT7          */
+/*               Outputs are latched by ATSRLatch                           */
+/*            V2 Disable Latch as only doing every 8 dots! and needs to switch by the dot */
+/****************************************************************************/
+
+/* Pin Map 
+          --------
+ATSRLatch|1     24| Vcc
+  BlinkEn|2     23| GRPH
+   VD7   |3     22| AT7
+   VD6   |4     21| /CLR_SR
+   VD5   |5     20| C0
+   VD4   |6     19| C1
+   VD3   |7     18| I
+   VD2   |8     17| R
+   VD1   |9     16| G
+   VD0   |10    15| B
+AlphaDots|11    14| Qc
+   Gnd   |12    13| Qb 
+          --------
+*/
+
+/*
+ * Inputs:  
+ */
+Pin 1  =  ATSTLatch;
+Pin 2  =  BlinkEn;
+Pin 3  =  VD7;        /* Blink if BlkEn else Background Intensity & Pixel 0 C1 */
+Pin 4  =  VD6;        /* Background R & Pixel 0 C0 */
+Pin 5  =  VD5;        /* Background G & Pixel 1 C1 */
+Pin 6  =  VD4;        /* Background B & Pixel 1 C0 */
+Pin 7  =  VD3;        /* Foreground Intensity & Pixel 2 C1 */
+Pin 8  =  VD2;        /* Foreground R & Pixel 2 C0 */
+Pin 9  =  VD1;        /* Foreground G & Pixel 3 C1 */
+Pin 10 =  VD0;        /* Foreground B & Pixel 3 C0 */
+Pin 11 =  AlphaDots;  /* Serialised Dots from shift register, switch background & foreground in text mode */
+Pin 13 =  Qb;         /* Dot clock / 4 for LS pixel bit */
+Pin 14 =  Qc;         /* Dot clock / 8 for MS pixel bit */
+Pin 21 =  !CLR_SR;    /* Clear Shift Register, supress video out active low */
+Pin 23 =  GRPH; 
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 22 = AT7;         /* If Blink Enable = 1 then = 1 if VD7=1 else 0 */
+Pin 20 = C0;          /* 320x200 4 colour graphics C0 for pixel  Qc, Qb */
+Pin 19 = C1;          /* 320x200 4 colour graphics C1 for pixel  Qc, Qb */
+Pin 18 = I;           /* Video DAC Colour=Intensity */
+Pin 17 = R;           /* Video DAC Colour=Red */
+Pin 16 = G;           /* Video DAC Colour=Green */
+Pin 15 = B;           /* Video DAC Colour=Blue */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+C1 = (GRPH & !Qc & !Qb & VD7) # (GRPH & !Qc & Qb & VD5) # (GRPH & Qc & !Qb & VD3) # (GRPH & Qc & Qb & VD1);
+C0 = (GRPH & !Qc & !Qb & VD6) # (GRPH & !Qc & Qb & VD4) # (GRPH & Qc & !Qb & VD2) # (GRPH & Qc & Qb & VD0);
+
+I = !GRPH & ((AlphaDots & VD3) # (!AlphaDots & VD7 & !BlinkEn)); /* Video DAC P3, Alpha Mode = Fore Intensity, H - Back Intensity if BlinkEn=0 */
+R = !GRPH & ((AlphaDots & VD2) # (!AlphaDots & VD6)); /* Video DAC P2, Alpha Mode Colour=Red VD2 or VD6 */
+G = !GRPH & ((AlphaDots & VD1) # (!AlphaDots & VD5)); /* Video DAC P1, Alpha Mode Colour=Green VD1 or VD5 */
+B = !GRPH & ((AlphaDots & VD0) # (!AlphaDots & VD4)); /* Video DAC P0, Alpha Mode Colour=Blue VD0 or VD4 */
+
+AT7 = !GRPH & BlinkEn & VD7; /* Attribute 7 indicates blink when in alpha mode and control port blink enabled */ 
+
+/*
+C0.ar = CLR_SR;
+C1.ar = CLR_SR;
+
+I.ar = CLR_SR;
+R.ar = CLR_SR;
+G.ar = CLR_SR;
+B.ar = CLR_SR;
+AT7.ar = CLR_SR;
+*/

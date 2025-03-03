@@ -1,0 +1,120 @@
+Name            CGALOGIC3V12 CGA Logic 3 Data bus buffer/latch logic for anti snow;
+Partno          CGALOGIC3V12;
+Revision        12;
+Date            17/12/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G22V10;
+
+/********************************************************************************/
+/* 30/11/2024 V1 Created for Breadboard PC CGA video controller anti snow       */ 
+/* 05/12/2024 V2 Added RDADDLY, CABDLY and DIRD, VAOE now uses CPUACTD+1        */ 
+/* 13/12/2024 V10 Reworked to use 6809 Anti Snow approach                       */ 
+/* 13/12/2024 V11 Ignore CQd for 40 Column Text Mode 0 for now                  */ 
+/* 17/12/2024 V12 Fix 40 Column Text Mode 0 by using CQa-c only                 */ 
+/********************************************************************************/
+
+/* Pin Map 
+          --------
+ CLK     |1     24| Vcc
+ CQa     |2     23| DCQ0
+ CQb     |3     22| DCQ1
+ CQc NC  |4     21| CAB
+ 640BW   |5     20| /CBA
+ HIRES   |6     19| /ADOE
+ GRPH    |7     18| /VRWE
+ DIR     |8     17| RDY/WAIT
+ CPUACTS1|9     16| ADCLK
+ NC      |10    15| DCQ2
+ /MEMR   |11    14| DCQ3
+ Gnd     |12    13| /CGARAM
+          --------
+*/
+
+/*
+ * Inputs:  define inputs, all positive logic, true = 1   
+ */
+
+Pin 1  = CLK;          /* CPUACTDOTCLK Dot Clock Gated by CPUACT */
+Pin 2  = CQa;          /* Qa CGA Cycle when MEMR or MEMW started */
+Pin 3  = CQb;          /* Qb CGA Cycle when MEMR or MEMW started */
+Pin 4  = CQc;          /* Qc CGA Cycle when MEMR or MEMW started */
+Pin 5  = 640BW;        /* 640 x 200 2 Colour Mode */
+Pin 6  = HIRES;        /* Needed to switch between 40 column mode and other modes */
+Pin 7  = GRPH;         /* Needed to switch between 40 column mode and other modes */
+Pin 8  = DIR;          /* 74LS646 Direction H=A->B L=B->A Write to Video RAM = 1, latched in CGA Logic 2 by CPUACT */
+Pin 9  = CPUACTS1;     /* CPU Activity, start or Read or Write to Video RAM, now sync to Dot Clock and 1 Dot Clock delay to allow for CLK continuing after CPUACT */
+Pin 11 = !MEMR;        /* CPU Memory Write active low but +ve logic in PLD */
+Pin 13 = !CGARAM;      /* CGA RAM Address Select for RDY/WAIT conditions in V12 */
+/*
+ * Outputs:  define outputs Note Pins 18 and 19 have the most terms (16) then 20 & 17 (14), 21 & 16 (12), 22 & 15 (10) and 23 & 14 (8)
+ */
+ 
+Pin 23 = DCQ0;         /* DCQ0 Current CGA Cycle after MEMR or MEMW started */
+Pin 22 = DCQ1;         /* DCQ1 Current CGA Cycle after MEMR or MEMW started */
+Pin 15 = DCQ2;         /* DCQ2 Current CGA Cycle after MEMR or MEMW started */
+Pin 14 = DCQ3;         /* DCQ3 Current CGA Cycle after MEMR or MEMW started */
+
+Pin 17 = RDYWAIT;      /* Ready/Wait to extend MEMR by 1 cycle */
+
+Pin 18 = !VRWE;        /* Video RAM Write Enable */
+
+Pin 21 = CAB;          /* 646 Clock CAB for CPU Write to VRAM 74LS646 Clock A-B on rising L to H */
+Pin 20 = !CBA;         /* 646 Clock for CPU Read from VRAM 74LS646 Clock B-A on rising L to H - Invert for latch  end of pulse */
+Pin 19 = !ADOE;        /* 74LS574 CPU Address Latch Output Enable */
+Pin 16 = ADCLK;        /* Clock for latching CPU Address to 74LS574 latches */
+
+/*
+ * Logic: ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input 
+ */
+
+/* field CQ_CYCLE = [CQd,CQc,CQb,CQa];  Comment out Qd and Qc as only 4 cycle values */
+
+field CQ_CYCLE = [CQb,CQa];
+field DC_CYCLE = [DCQ3..DCQ0];
+
+/* When CPUACT goes low will clear Q0-Q3, note other Flip-Flops in PLD will also clear as AR is shared */
+DCQ0.ar = !CPUACTS1;
+DCQ1.ar = !CPUACTS1;
+DCQ2.ar = !CPUACTS1;
+DCQ3.ar = !CPUACTS1;
+
+/* These are the standard conditions needed for a 4 bit counter 0-15/0x0-0xF */
+DCQ3.d = ((!DCQ3 & DCQ2 & DCQ1 & DCQ0) # (DCQ3 & !(DCQ2 & DCQ1 & DCQ0)));
+DCQ2.d = ((!DCQ2 & DCQ1 & DCQ0) # (DCQ2 & !(DCQ1 & DCQ0)));
+DCQ1.d = (!DCQ1 & DCQ0 # DCQ1 & !DCQ0);
+DCQ0.d = !DCQ0;
+
+
+/* DIR Already combined with CGARAM Video RAM select CLK should do first half of cycle, !CLK second half */
+/* V12 C2 & C3(7 to 6) move 1 earlier!!! */
+
+VRWE = DIR & (
+               ((CQ_CYCLE:0 & !MODE0)          & (DC_CYCLE:5 &  CLK)) # 
+               ((CQ_CYCLE:1 & !MODE0 & !MODE4) & (DC_CYCLE:4 & !CLK)) # 
+               ((CQ_CYCLE:1 & !MODE0 &  MODE4) & (DC_CYCLE:7 &  CLK)) # 
+               ((CQ_CYCLE:2 & !MODE0)          & (DC_CYCLE:7 &  CLK)) # 
+               ((CQ_CYCLE:3 & !MODE0)          & (DC_CYCLE:6 &  CLK)) #
+               ( MODE0 & DC_CYCLE:2 & !CLK)                         
+              );
+
+ADCLK = DC_CYCLE:2;        /* Need Address Latch Clock for Read and Write Dot Clock Cycle 3 now 2 with CPUACTS1 to DotClk */
+CAB = DC_CYCLE:2 & DIR ;   /* Need CAB Clock for Write only Dot Clock Cycle 3 now 2 with CPUACTS1 to DotClk */
+
+CBA = ADOE & !DIR;         /* Same timing as ADOE but only for read */
+
+/* Cycle 1 for MODE 4 320x200 4 Colour requires different timing. Mode 0 fixed timing as 80ns Dot Clock Cycle */
+ADOE = ((CQ_CYCLE:0 & !MODE0)          & (DC_CYCLE:4 # DC_CYCLE:5 & CLK)) # 
+       ((CQ_CYCLE:1 & !MODE4 & !MODE0) & (DC_CYCLE:3 & !CLK # DC_CYCLE:4)) # 
+       ((CQ_CYCLE:1 &  MODE4)          & (DC_CYCLE:6 # DC_CYCLE:7 & CLK)) # 
+       ((CQ_CYCLE:2 & !MODE0)          & (DC_CYCLE:6 # DC_CYCLE:7 & CLK)) # 
+       ((CQ_CYCLE:3 & !MODE0)          & (DC_CYCLE:5 # DC_CYCLE:6 & CLK)) #
+       (MODE0 & (DC_CYCLE:2)) ;
+       
+MODE0 = !HIRES & !GRPH;   /* 40 Column Text Moden 0 enabled */
+MODE4 = !640BW & GRPH;    /* 320x200 4 Colour mode 2 enabled */ 
+
+/* Extend Reads of CGA RAM by wait state of 1 clock cycle. Have to control to only reads from Video RAM as !DIR only says not CGA RAM Write */
+RDYWAIT = MEMR & CGARAM & (DC_CYCLE:0 # DC_CYCLE:1 # DC_CYCLE:2); 

@@ -1,0 +1,105 @@
+Name            CGADECODEV4 CGA Video Controller IO Port Decoder based on MDA V3;
+Partno          CGADECODEV4;
+Revision        04;
+Date            22/10/24;
+Designer        Dave Henry;
+Company         Breadboarding Labs;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/*****************************************************************************************/
+/* 15/01/2024 V1 MDA Video Controller IO Port Decoder                                    */
+/* 17/03/2024 V2 MDA Video Controller IO Port Decoder add PS/2 CS                        */
+/* 29/03/2024 V3 MDA Video Controller IO Port Decoder add Floppy Disk Controller         */
+/* cupl.exe -m1lxfjnabe -u C:\WinCUPL\Shared\Atmel.DL C:\WinCUPL\Shared\MDA_decodeV1.pld */  
+/* 01/10/2024 V4 CGA Video Controller IO Port Decoder                                 */
+/* Port 3D0		Palette Add  Wr 3D0-3D3 A0 & A1 to Palette IC                    */
+/* Port 3D1		Palette Colour (IMS G176P uses A1 and A0 for RS1 and RS0 )       */
+/* Port 3D2		Palette Mark                                                     */
+/* Port 3D3		Palette Add Rd                                                   */
+/* Port 3D4		CGA CRTC Index      (6845 uses RS for A0)                        */
+/* Port 3D5		CGA CRTC Data                                                    */
+/* Port 3D8		CGA Control Port                                                 */
+/* Port 3D9		CGA Colour Port                                                  */
+/* Port 3DA		CGA Status Port                                                  */
+/*****************************************************************************************/
+
+/* Pin Map 
+          --------
+/IOA19A12|1     24| Vcc
+   /IOR  |2     23| /CGASTAT
+   /IOW  |3     22| /CGA6845CS  
+   A0    |4     21| /CGACONT
+   A1    |5     20| /CGACOL
+   A2    |6     19| /CGAPALRD
+   A3    |7     18| /CGAPALWR  
+   A4    |8     17| NC   
+   A5    |9     16| A11
+   A6    |10    15| A10
+   A7    |11    14| A9
+   Gnd   |12    13| A8
+          --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  = !IOA19A12;
+Pin 2  = !IOR;
+Pin 3  = !IOW;
+Pin 4  = A0;
+Pin 5  = A1;
+Pin 6  = A2;
+Pin 7  = A3;
+Pin 8  = A4;
+Pin 9  = A5;
+Pin 10 = A6;
+Pin 11 = A7;
+Pin 13 = A8;
+Pin 14 = A9;
+Pin 15 = A10;
+Pin 16 = A11;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 23 = !CGASTAT;
+Pin 22 = !CGA6845CS; 
+Pin 21 = !CGACONT;
+Pin 20 = !CGACOL;
+Pin 19 = !CGAPALRD;
+Pin 18 = !CGAPALWR;
+ 
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/*    A11   A7      A0 */
+/* 03D0 0011 1101 0000 */
+CGAPALRD =  !A11 & !A10 & A9 & A8 & A7 & A6 & !A5 & A4 & !A3 & !A2 & IOA19A12 & IOR;           /* 03D0-03D3 Ignore A1 & A0 read */
+
+CGAPALWR =  !A11 & !A10 & A9 & A8 & A7 & A6 & !A5 & A4 & !A3 & !A2 & IOA19A12 & IOW;           /* 03D0-03D3 Ignore A1 & A0 write */
+
+/*    A11   A7      A0 */
+/* 03D4 0011 1101 0100  */
+CGA6845CS = !A11 & !A10 & A9 & A8 & A7 & A6 & !A5 & A4 & !A3 & A2 & !A1 & IOA19A12;           /* 03D4 Ignore A0 as 6845 has RS=A0 */
+
+/*    A11   A7      A0 */
+/* 03D8 0011 1101 1000  */
+CGACONT =   !A11 & !A10 & A9 & A8 & A7 & A6 & !A5 & A4 & A3 & !A2 & !A1 & !A0 & IOA19A12 & IOW; /* 03D8 CGA Control Register write */
+
+/*    A11   A7      A0 */
+/* 03D9 0011 1101 1001  */
+CGACOL =   !A11 & !A10 & A9 & A8 & A7 & A6 & !A5 & A4 & A3 & !A2 & !A1 & A0 & IOA19A12 & IOW;   /* 03D9 CGA Colour Register write */
+
+/*    A11   A7      A0 */
+/* 03DA 0011 1101 1010  */
+CGASTAT =  !A11 & !A10 & A9 & A8 & A7 & A6 & !A5 & A4 & A3 & !A2 & A1 & !A0 & IOA19A12 & IOR;  /* 03DA CGA Status Register read */
+
+

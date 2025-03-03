@@ -1,0 +1,104 @@
+Name            CGAClockV3 CGA Video Adaptor Clock;
+Partno          CGAClockV3;
+Revision        03;
+Date            15/11/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/************************************************************************************/
+/* Based on V3 of MDA Clock PLD with Hires to switch between 80 & 40 Column Modes   */
+/* This PLD buffers the 25MHz Dot clock and inverted, Divides dot clock             */
+/* by 8 for Character Clock (Qc), Qb used for VA0 for char/att toggle               */
+/* Also latch clocks for Character, Attribute and Shift Reg. Latches                */
+/* DotClk will be 25.175 Mhz when HIRES=1, 12.59Mhz when HIRES=0                    */
+/* Version 2 includes full support for 80 & 40 Column Mode amd adds GRPH input      */
+/*            which ensures 80 column/25Mhz is used for graphics modes as well      */
+/*            Also make ATSRLatch the same as CHaracterLatch for 320x200 4 col mode */
+/* 01/12/2024 V3 Anti snow changes and corrections to Mode 4 when HIRES=0           */
+/*            Some test utilities don't use BIOS mode so will clear HIRES for 4 Col.*/
+/************************************************************************************/
+
+/* Pin Map 
+         --------
+  25Mhz |1     24| Vcc
+  HIRES |2     23| ATSRLatch
+  640BW |3     22| Qd 
+  NC    |4     21| -CH/AT
+  NC    |5     20| CHLatch
+  /RST  |6     19| Qa
+  NC    |7     18| Qb
+  NC    |8     17| Qc
+  NC    |9     16| /Qc /ChClk for CRTC
+  NC    |10    15| -CH/ATDly
+  NC    |11    14| DotClk 
+  Gnd   |12    13| GRPH 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  =  25Mhz;
+Pin 2  =  HIRES;        /* In original CGA HIRES used only for 80 Column text mode, use HIRES for graphics mode too in BBPC */
+Pin 3  =  640BW;        /* High Res 640x200 2 colour mode. When 640BW=0 make ATSRLatch=CHLatch to fix 4 colour graphics shifted pixels */
+Pin 6  =  !RST;
+Pin 13 =  GRPH;         /* GRPH=1 Graphics mode, in original CGA it used 40 column mode but for BBPC we will use 80 column HIRES mode */
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 23 = !ATSRLatch;   /* Attribute and Shift Register Latch active low to high */
+Pin 22 = Qd;           /* /16 Extra divider for HIRES=0 40 Column Mode */
+Pin 21 = CHAT;         /* Character/Attribute Video address 0 switch between character and attribute bytes */
+Pin 20 = !CHLatch;     /* Character Latch active low to high */
+Pin 19 = Qa;           /* Counter output /2 */
+Pin 18 = Qb;           /* Counter outut /4 Video Address 0 */
+Pin 17 = Qc;           /* Counter output /8 Character Clock */
+Pin 16 = !InvChClk;    /* Inverted Character Clock - was counter output /8  now switches between Qc and Qd depending on HIRES & GRPH */
+Pin 15 = CHATDly;      /* CHAT delayed 1 Dot Clock cycle, used to produce pin 21 delayed value */
+Pin 14 = DotClk;       /* Dot Clock Buffered 25Mhz when HIRES=1 Qa when HIRES=0 */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+CLK=25Mhz;
+
+DotClk = (25Mhz & (GRPH # HIRES)) # (Qa & !HIRES & !GRPH);  /* Always uses HIRES 25Mhz for Graphics or HIRES=1, 12.5Mhz when HIRES=0 for 40 column mode */
+
+/* These conditions are required to cascade D Flip-Flops */
+/* as a Counter !Q feeds back into D */
+/* Q3.d = !clr & ((!Q3 & Q2 & Q1 & Q0) # (Q3 & !(Q2 & Q1 & Q0))); */
+Qd.d = ((!Qd & Qc & Qb & Qa) # (Qd & !(Qc & Qb & Qa))) ;
+Qc.d = ((!Qc & Qb & Qa) # (Qc & !(Qb & Qa))) ;
+Qb.d = (!Qb & Qa # Qb & !Qa);
+/* D Flip Flop Counter feeds !Q into D and uses CLK to cycle */
+Qa.d = !Qa;
+
+Qa.ar = RST;
+Qb.ar = RST;
+Qc.ar = RST;
+Qd.ar = RST;
+/* Using the condition (GRPH # HIRES) below means that even if the control register is set to GRPH=1 and HIRES=0 then will still use 80 column mode clock */
+/* InvChClk= (Qc & (GRPH # HIRES)) # (Qd & !HIRES); */
+InvChClk=  (Qc & (GRPH & 640BW # !GRPH & HIRES)) # (GRPH & !640BW & !Qc) # (Qd & !HIRES & !GRPH);
+
+/* Character Latch now original SR Latch #3- 4 FF so don't need Colour pipeline */
+/* CHLatch=!(!Qa & Qb & !Qc); old 3 cycles  - active low to high */
+/* CHLatch=(!Qc & !Qa & !Qb & HIRES) # (!Qd & !Qb & !Qc & !HIRES );  Pin Mapping now inverted 1 pixel rotated from LHS to RHS */
+CHLatch=(!Qc & !Qa & !Qb & (HIRES # !HIRES & GRPH)) # (!Qd & !Qb & !Qc & !Qa & !HIRES & !GRPH); /* Pin Mapping now inverted including !Qa should make CHLatch a little earlier */
+
+/* V3 Move back to clock cycle 4 from 3 in V2 - active low to high. For GRPH & 640BW=0 set ATSRLatch to CHLatch */
+ATSRLatch=(Qc & !Qa & !Qb & (GRPH & 640BW # !GRPH & HIRES)) # (Qd & !Qb & !Qc & !Qa & !HIRES & !GRPH) # (GRPH & !640BW & Qc & Qa & Qb & !DotClk);
+/* 80 Column Mode ATSRLatch=!Qc # Qa # Qb; 40 Column mode ATSRLatch=!Qd # Qb # Qc; */
+
+/* VA0 is based on inverted Qc delayed by 2 dot clocks */
+/* CHATDly.d = (!Qc & (GRPH # HIRES)) # (!Qd & !HIRES); not quite right for 40x25 need extra 80ns shift right */
+CHATDly.d = (!Qc & (GRPH # HIRES)) # ((Qb & !Qc & !Qd & !HIRES) # (!Qb & Qc & !Qd & !HIRES) # (Qb & Qc & !Qd & !HIRES) # (!Qb & !Qc & Qd & !HIRES));
+
+
+CHAT.d = CHATDly;

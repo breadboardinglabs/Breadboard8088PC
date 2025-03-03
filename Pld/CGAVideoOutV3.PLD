@@ -1,0 +1,88 @@
+Name            CGAVidOutV3 VGA Video Adaptor Video Output;
+Partno          CGAVidOutV3;
+Revision        03;
+Date            24/10/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          p22v10;
+
+/****************************************************************************/
+/*                                                                          */
+/* 11/02/2024 V1 First version with both Mono and Colour support            */
+/* 17/03/2024 V2 Supress background RVV when NoDisplay set                  */
+/* 24/10/2024 V3 CGA copied from V2 of MDA PLD                              */
+/****************************************************************************/
+
+/* Pin Map 
+          --------
+CharClk  |1     24| Vcc
+Cursor   |2     23| HS
+BlinkChr |3     22| VS
+BlinCur  |4     21| HSDly
+VideoEn  |5     20| VSDly
+SDots    |6     19| NC
+Blank/DE |7     18| Overscan
+BlinkEn  |8     17| Blank/DE+1
+NC       |9     16| CGate (internal intermediate)
+NC       |10    15| /CLR_SR
+/RESET   |11    14| +AlphaDots
+Gnd      |12    13| AT7 
+          --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  = CharClk;        /* Character clock in case needed for HS/VS delay */
+Pin 2  = Cursor;         /* CRTC Cursor output */
+Pin 3  = BlinkChr;       /* Blink Character Clock VS/32 */
+Pin 4  = BlinkCur;       /* Blink Cursor Clock VS/16 */
+Pin 5  = VideoEn;        /* CRT Control Video Enable=1 Note Not used here - this is handled by NoDisplay in attribute Mux */
+Pin 6  = SDots;          /* Output from Shift Register Fore = 1 Back = 0 */
+Pin 7  = BlankDE;        /* Blank/Display Enable (DE low, Blanking High inverse of DE)*/
+Pin 8  = BlinkEn;        /* CRT Control Blink Enable = 1 */
+Pin 11 = !RESET;         /* Reset active high */
+Pin 13 = AT7;            /* AT7 Determines Blink when BlinkEN */
+Pin 22 = VS;
+Pin 23 = HS;
+ 
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 14 = AlphaDots;      /* AlphaDots is video out includes cursor and character gen (and will include 640x200 graphics TBD) */
+Pin 15 = !CLR_SR;        /* Clear Shift Register, supresses output and includes video enable - active low */
+Pin 16 = CGate;
+Pin 17 = BlankDE1;       /* DE delayed by 1 character clock (already delayed by CRTC) to drive CLR_SR on first char clock of blank period */
+Pin 18 = Overscan;       /* True when Display Enable=0 and neither of HS or VS active (note HS inverted for 70Hz) */
+Pin 20 = VSDly;
+Pin 21 = HSDly;
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/* This C Gate condition needed intermediate term as too complex for AlphaDots condition (in MDA), when this is true it turns off AlphaDots */
+/* Syntax below evaluates to   !BlinkChr # !BlinkEn # !AT7 # Cursor */
+/* Blink clock will provide alternating blink unless 2nd term returns 1, BlinkEn=0 returns 1, AT7=0 returns 1 and Cursor=1 returns 1*/
+
+CGate = !BlinkChr # !(BlinkEn & AT7 & !Cursor);
+
+    /* Gates         A           B          C          */
+    /* Note for A - !A NOR !B == A&B */
+AlphaDots =  (Cursor & BlinkCur) #  (CGate & SDots );
+
+
+VSDly.d = VS;
+HSDly.d = HS;
+VSDly.ar = RESET;
+HSDly.ar = RESET;
+
+BlankDE1.d = BlankDE;  /* Delayed DE for pulsing CLR_SR at start of blanking period */
+BlankDE1.ar = RESET;
+/* Note /CLR_SR active low but ! on pin mapping so +ve logic changed & to # */
+CLR_SR = !VideoEn # (BlankDE & !BlankDE1) ; /* When video enable is low then output is supressed via CLR_SR, and 1st char clock of blank clears SR */
+/*     1 during blank  1       1 corrected inverse on VS to HS */
+Overscan = BlankDE & VSDly & !HSDly ; /* True when Display Enable=0 (Blank=1) and neither of HS or VS active (note HS inverted for 70Hz) */

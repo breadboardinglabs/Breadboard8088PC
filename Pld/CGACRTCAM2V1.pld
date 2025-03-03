@@ -1,0 +1,84 @@
+Name            CGACRTCAM2V1 CGA CRTC Address Multiplxer 2 VA7 - VA14;
+Partno          CGACRTCAM2V1;
+Revision        01;
+Date            04/11/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G16V8;
+
+/*****************************************************************************/
+/* 04/11/2024 V1 Created for Breadboard PC CGA video controller             */ 
+/*****************************************************************************/
+
+/* Pin Map 
+         --------
+ RA1    |1     20| Vcc
+ GRPH   |2     19| VA7   
+ MA12   |3     18| VA8
+ MA11   |4     17| VA9
+ MA10   |5     16| VA10
+ MA9    |6     15| VA11
+ MA8    |7     14| VA12
+ MA7    |8     13| VA13
+ MA6    |9     12| VA14
+ Gnd    |10    11| /OE 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1 =   RA1;   /* Raster Address 1 used to switch between 8K blocks of VRAM */
+Pin 2 =   GRPH;  /* Graphics mode enabled, use RA1 to switch between 2 banks of 8K */
+Pin 3 =   MA12;  /* CRTC MA6-MA12 address lines */
+Pin 4 =   MA11;
+Pin 5 =   MA10;
+Pin 6 =   MA9;
+Pin 7 =   MA8;
+Pin 8 =   MA7;
+Pin 9 =   MA6;
+Pin 11 =  !oe;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 19 = VA7;
+Pin 18 = VA8;
+Pin 17 = VA9;
+Pin 16 = VA10;
+Pin 15 = VA11;
+Pin 14 = VA12;
+Pin 13 = VA13;
+Pin 12 = VA14;
+ 
+
+/* ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+*/
+
+/*
+ * Logic:  
+ */
+/* In Graphics modes RA1 switches between two blocks of 8K RAM,
+even lines RA1=0, odd lines RA1=1 
+Note not using RA0 as 200 CGA lines double scanned to 400 for VGA output */
+
+VA7 =  (!GRPH & MA6)  # (GRPH & MA7);
+VA8 =  (!GRPH & MA7)  # (GRPH & MA8);
+VA9 =  (!GRPH & MA8)  # (GRPH & MA9);
+VA10 = (!GRPH & MA9)  # (GRPH & MA10);
+VA11 = (!GRPH & MA10) # (GRPH & MA11);
+VA12 = (!GRPH & MA11) # (GRPH & MA12);
+VA13 = (!GRPH & MA12) # (GRPH & RA1);
+VA14 = 'b'0;  /* hard code to zero for now, if we use full 32K or do MCGA then will use this */
+
+VA7.OE = oe;
+VA8.OE = oe;
+VA9.OE = oe;
+VA10.OE = oe;
+VA11.OE = oe;
+VA12.OE = oe;
+VA13.OE = oe;
+VA14.OE = oe;

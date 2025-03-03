@@ -1,0 +1,81 @@
+Name            CGALOGIC2V1 CGA Logic 2 Data bus buffer/latch logic;
+Partno          CGALOGIC2V1;
+Revision        01;
+Date            31/10/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          g16v8;
+
+/********************************************************************************/
+/* 12/11/2024 V1 Created for Breadboard PC CGA video controller                 */ 
+/* Note  IOR/IOE and MEMR/MEMW were mapped to wrong pins vs KiCad & chip labels */
+/********************************************************************************/
+
+/* Pin Map 
+         --------
+ NC     |1     20| Vcc
+ NC     |2     19| /OE   
+ NC     |3     18| SBA  
+ NC     |4     17| CBA  
+ /IOW   |5     16| CAB    
+ /IOR   |6     15| SAB
+ /MEMW  |7     14| DIR
+ /MEMR  |8     13| /VRWE
+ /CGARAM|9     12| /VROE  
+  Gnd   |10    11| NC 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 5 =   !IOW;
+Pin 6  =  !IOR;
+Pin 7  =  !MEMW;
+Pin 8 =   !MEMR;
+Pin 9  =  !CGARAM;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+ 
+Pin 12 = !VROE;        /* Video RAM Output Enable */
+Pin 13 = !VRWE;        /* Video RAM Write Enable */
+Pin 14 = DIR;          /* 74LS646 Direction H=A->B L=B->A */
+Pin 15 = SAB;          /* 74LS646 Select A-B Real time Active L */
+Pin 16 = CAB;          /* 74LS646 Clock A-B on rising L to H */
+Pin 17 = CBA;          /* 74LS646 Clock B-A on rising L to H */
+Pin 18 = SBA;          /* 74LS646 Select B-A Real time Active L */
+Pin 19 = !OE;          /* 74LS646 Output Enable Active L  - was missing ! */
+
+/* ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/* Note that default config likely to exhibit CGA snow interference
+   ADOE, VAOE and CAB/CBA Data bus buffers/latches could be coordinated with gap between ATSRLatch and CHLatch to avoid this */
+
+/* Video RAM enabled for CRTC or when reading CGA RAM*/
+VROE = !CGARAM # (MEMR & CGARAM) ;
+
+/* Video RAM write enabled when writing CGA RAM otherwise read*/
+VRWE = MEMW & CGARAM;
+
+/* 74LS646 Direction H=A->B L=B->A Direction is VRAM -> CPU unless writing VRAM */   
+DIR = MEMW & CGARAM;          
+
+/* 74LS646 Select A-B Active L, stored H, always passthough, depends on DIR=1 and OE */
+SAB = 'b'0;          
+/* 74LS646 Select B-A Active L, stored H, always passthough, depends on DIR=0 and OE  */
+SBA = 'b'0;          
+
+CAB = 'b'0;          /* 74LS646 Clock A-B on rising L to H */
+CBA = 'b'0;          /* 74LS646 Clock B-A on rising L to H */
+
+/* 74LS646 Output Enable when VRAM selected and either MEMR or MEMW, direction determined by DIR above */
+OE = CGARAM & (MEMR # MEMW);

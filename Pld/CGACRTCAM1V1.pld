@@ -1,0 +1,78 @@
+Name            CGACRTCAM1V1 CGA CRTC Address Multiplxer 1 VA0-VA6;
+Partno          CGACRTCAM1V1;
+Revision        01;
+Date            04/11/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          G16V8;
+
+/*****************************************************************************/
+/* 04/11/2024 V1 Created for Breadboard PC CGA video controller             */ 
+/*****************************************************************************/
+
+/* Pin Map 
+         --------
+ CHAT   |1     20| Vcc
+ GRPH   |2     19| VA0   
+ MA6    |3     18| VA1
+ MA5    |4     17| VA2
+ MA4    |5     16| VA3 
+ MA3    |6     15| VA4
+ MA2    |7     14| VA5
+ MA1    |8     13| VA6
+ MA0    |9     12| NC
+ Gnd    |10    11| /OE 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1 =   CHAT;  /* Character or Attribute, based on clock Qc which toggles during 1 character period, used for alphanumeric mode */
+Pin 2 =   GRPH;  /* Graphics mode enabled, use RA1 to switch between 2 banks of 8K */
+Pin 3 =   MA6;   /* CRTC MA0-MA6 address lines */
+Pin 4 =   MA5;
+Pin 5 =   MA4;
+Pin 6 =   MA3;
+Pin 7 =   MA2;
+Pin 8 =   MA1;
+Pin 9 =   MA0;
+Pin 11 =  !oe;
+
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+Pin 19 = VA0;
+Pin 18 = VA1;
+Pin 17 = VA2;
+Pin 16 = VA3;
+Pin 15 = VA4;
+Pin 14 = VA5;
+Pin 13 = VA6;
+ 
+
+/* ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+*/
+
+/*
+ * Logic:  
+ */
+/* In Alpha numeric mode CHAT switches between character and attribute with in each character cycle */
+VA0 = (!GRPH & CHAT) # (GRPH & MA0);
+VA1 = (!GRPH & MA0)  # (GRPH & MA1);
+VA2 = (!GRPH & MA1)  # (GRPH & MA2);
+VA3 = (!GRPH & MA2)  # (GRPH & MA3);
+VA4 = (!GRPH & MA3)  # (GRPH & MA4);
+VA5 = (!GRPH & MA4)  # (GRPH & MA5);
+VA6 = (!GRPH & MA5)  # (GRPH & MA6);
+
+VA0.OE = oe;
+VA1.OE = oe;
+VA2.OE = oe;
+VA3.OE = oe;
+VA4.OE = oe;
+VA5.OE = oe;
+VA6.OE = oe;

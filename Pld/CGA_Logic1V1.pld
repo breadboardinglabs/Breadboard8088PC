@@ -1,0 +1,88 @@
+Name            CGALOGIC1V1 CGA Logic 1 Address Bus, 640x200 latch and 74LS245 buffer logic;
+Partno          CGALOGIC1V1;
+Revision        01;
+Date            31/10/24;
+Designer        Dave Henry;
+Company         Breadboarding;
+Location        UK;
+Assembly        None;
+Device          g16v8;
+
+/*****************************************************************************/
+/* 31/010/2024 V1 Created for Breadboard PC CGA video controller             */ 
+/*****************************************************************************/
+
+/* Pin Map 
+         --------
+ /CGARAM|1     20| Vcc
+ /CGAIO |2     19| NC   
+ /IOR   |3     18| /ADOE  
+ /IOW   |4     17| /ADLE  
+ /MEMR  |5     16| /VAOE    
+ /MEMW  |6     15| /640BWOE
+  NC    |7     14| /CG_OE 
+  NC    |8     13| DIR
+  640BW |9     12| /245CE  
+  Gnd   |10    11| /OE 
+         --------
+*/
+
+/*
+ * Inputs:  
+ */
+
+Pin 1  =  !CGARAM;
+Pin 2  =  !CGAIO;
+Pin 3 =   !IOR;
+Pin 4  =  !IOW;
+Pin 5  =  !MEMR;
+Pin 6 =   !MEMW;
+Pin 9 =   640BW;
+/*
+ * Outputs:  define outputs - all are simple combinatorial
+ */
+ 
+Pin 12 = !245CE;       /* 74LS245 CPU Data bus buffer /CE */
+Pin 13 = DIR;          /* 74LS245 Direction 1=A-B CPU to CGA RAM */
+Pin 14 = !CG_OE;       /* Character Generator EEPROM /OE */
+Pin 15 = !640BWOE;     /* 640x200 2 Colour graphics latch /OE */
+Pin 16 = !VAOE;        /* CRTC Video Address /OE */
+Pin 17 = !ADLE;        /* CPU Address bus latch enable */
+Pin 18 = !ADOE;        /* CPU Address bus output enable */
+
+/*
+ * Logic symbols
+ * ! NOT  # OR   & AND  $ XOR   .d D Flip-flop Input
+ */
+
+/*
+ * Logic:  
+ */
+/* 74LS245 CPU data bus buffer */
+245CE = (CGAIO & (IOW # IOW)) # CGARAM ; /* Enable buffer on video RAM CE or IO Read/Write on CGA IO Ports - changed to (IOW # IOR) not & */
+DIR   = (!MEMR & !IOR);                /* /IOR or /MEMR will drive DIR low */
+
+/* /IOR  /MEMR  IOR  MEMR   DIR
+    1      1    0    0     1
+    0      1    1    0     0
+    1      0    0    1     0
+    0      0    1    1     0     
+*/
+/* Character Generator EEPROM /OE Enabled for 640x200 2 Colour Graphics 640BW=0 */
+CG_OE = !640BW;
+
+/* 640x200 2 Colour graphics latch /OE Enabled when 640BW=1 */
+640BWOE = 640BW;
+
+/* CRTC Video Address /OE enabled  when CGA RAM not accessed */
+VAOE = !CGARAM;  
+
+/* CPU Address bus output enable when CGA RAM is accessed */
+ADOE = CGARAM;
+
+/* 74ALS573 Latch Enable when H passes live values on H to L it latches the data */
+/* ADLE = CGARAM; needs some level of dot clock to latch value once settled - set to 0 for now (1) */
+ADLE = 'b'0;
+
+/* Note that default config likely to exhibit CGA snow interference
+   ADOE, VAOE and the Data bus buffers/latches could be coordinated to avoid this */

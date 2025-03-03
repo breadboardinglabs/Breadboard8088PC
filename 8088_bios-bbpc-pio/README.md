@@ -208,4 +208,4 @@ ps2aux.inc changes to get MS Mouse driver working, disable output of scaling, ex
 
 video.inc Correction for working with MDA not waiting for CGA retrace (would hang), changes in CGA parameters for VGA 25Mhz output, call InitPalette for VGA DAC, disable light pen
 
-
+8086Monitorv5.inc Contains the source for the migrated Nanocomp Monitor converted from 6809 to 8086 assembley
